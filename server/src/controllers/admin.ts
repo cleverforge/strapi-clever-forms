@@ -1,4 +1,5 @@
 const FORM_UID = 'plugin::clever-forms.form';
+const SUBMISSION_UID = 'plugin::clever-forms.submission';
 
 const normalize = (body: any) => ({
   name: String(body?.name || 'Untitled form').trim(),
@@ -54,5 +55,13 @@ export default {
   async remove(ctx: any) {
     await strapi.documents(FORM_UID).delete({ documentId: ctx.params.documentId } as any);
     ctx.body = { data: { documentId: ctx.params.documentId } };
+  },
+
+  async listSubmissions(ctx: any) {
+    const documents = await strapi.documents(SUBMISSION_UID).findMany({
+      sort: ['submittedAt:desc'],
+      populate: ['form'],
+    } as any);
+    ctx.body = { data: documents };
   },
 };
