@@ -7,6 +7,7 @@
   "attributes": {
     "form": { "type": "relation", "relation": "manyToOne", "target": "plugin::clever-forms.form", "inversedBy": "submissions", "required": true },
     "formVersion": { "type": "integer", "required": true, "min": 1 },
+    "formSchemaVersion": { "type": "integer", "required": true, "default": 1, "min": 1 },
     "data": { "type": "json", "required": true },
     "metadata": { "type": "json" },
     "status": { "type": "enumeration", "enum": ["received", "processing", "completed", "rejected"], "default": "received", "required": true },
