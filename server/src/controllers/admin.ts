@@ -16,13 +16,22 @@ const normalize = (body: any) => ({
   confirmation: body?.confirmation || { type: 'message', message: 'Thank you for your submission.' },
 });
 
+const paging = (ctx: any) => ({
+  page: Math.max(1, Number(ctx.query?.page || 1)),
+  pageSize: Math.min(100, Math.max(1, Number(ctx.query?.pageSize || 20))),
+});
+
 export default {
   async list(ctx: any) {
+    const { page, pageSize } = paging(ctx);
+    const search = String(ctx.query?.search || '').trim();
+    const filters: any = search ? { $or: [{ name: { $containsi: search } }, { slug: { $containsi: search } }] } : {};
     const documents = await strapi.documents(FORM_UID).findMany({
-      sort: ['updatedAt:desc'],
-      status: 'draft',
+      sort: ['updatedAt:desc'], status: 'draft', filters,
+      start: (page - 1) * pageSize, limit: pageSize,
     } as any);
-    ctx.body = { data: documents };
+    const total = await strapi.documents(FORM_UID).count({ status: 'draft', filters } as any);
+    ctx.body = { data: documents, meta: { pagination: { page, pageSize, pageCount: Math.ceil(total / pageSize), total } } };
   },
 
   async findOne(ctx: any) {
@@ -37,6 +46,14 @@ export default {
     ctx.body = { data: document };
   },
 
+  async duplicate(ctx: any) {
+    const source: any = await strapi.documents(FORM_UID).findOne({ documentId: ctx.params.documentId } as any);
+    if (!source) return ctx.notFound('Form not found');
+    const copy = normalize({ ...source, name: `${source.name} Copy`, slug: `${source.slug}-copy`, status: 'draft' });
+    const document = await strapi.documents(FORM_UID).create({ data: copy } as any);
+    ctx.body = { data: document };
+  },
+
   async update(ctx: any) {
     const data = normalize(ctx.request.body?.data || ctx.request.body);
     const document = await strapi.documents(FORM_UID).update({ documentId: ctx.params.documentId, data } as any);
@@ -44,10 +61,7 @@ export default {
   },
 
   async publish(ctx: any) {
-    await strapi.documents(FORM_UID).update({
-      documentId: ctx.params.documentId,
-      data: { status: 'published' },
-    } as any);
+    await strapi.documents(FORM_UID).update({ documentId: ctx.params.documentId, data: { status: 'published' } } as any);
     const document = await strapi.documents(FORM_UID).publish({ documentId: ctx.params.documentId } as any);
     ctx.body = { data: document };
   },
@@ -58,10 +72,20 @@ export default {
   },
 
   async listSubmissions(ctx: any) {
+    const { page, pageSize } = paging(ctx);
+    const search = String(ctx.query?.search || '').trim();
+    const filters: any = search ? { data: { $containsi: search } } : {};
     const documents = await strapi.documents(SUBMISSION_UID).findMany({
-      sort: ['submittedAt:desc'],
-      populate: ['form'],
+      sort: ['submittedAt:desc'], populate: ['form'], filters,
+      start: (page - 1) * pageSize, limit: pageSize,
     } as any);
-    ctx.body = { data: documents };
+    const total = await strapi.documents(SUBMISSION_UID).count({ filters } as any);
+    ctx.body = { data: documents, meta: { pagination: { page, pageSize, pageCount: Math.ceil(total / pageSize), total } } };
+  },
+
+  async findSubmission(ctx: any) {
+    const document = await strapi.documents(SUBMISSION_UID).findOne({ documentId: ctx.params.documentId, populate: ['form'] } as any);
+    if (!document) return ctx.notFound('Submission not found');
+    ctx.body = { data: document };
   },
 };
