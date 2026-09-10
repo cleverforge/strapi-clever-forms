@@ -1,3 +1,6 @@
+import { CLEVER_FORMS_EXTENSION_API_VERSION, CLEVER_FORMS_SCHEMA_VERSION } from '../../../shared/types';
+import { cleverFormsLifecycle } from '../../../shared/lifecycle';
+
 const FORM_UID = 'plugin::clever-forms.form';
 const SUBMISSION_UID = 'plugin::clever-forms.submission';
 
@@ -10,6 +13,9 @@ const normalize = (body: any) => ({
     .replace(/^-|-$/g, ''),
   description: body?.description || '',
   status: body?.status || 'draft',
+  schemaVersion: body?.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
+  extensionApiVersion: body?.extensionApiVersion ?? CLEVER_FORMS_EXTENSION_API_VERSION,
+  version: Math.max(1, Number(body?.version || 1)),
   requiresAuthentication: Boolean(body?.requiresAuthentication),
   pages: Array.isArray(body?.pages) ? body.pages : [],
   settings: body?.settings || {},
@@ -42,27 +48,46 @@ export default {
 
   async create(ctx: any) {
     const data = normalize(ctx.request.body?.data || ctx.request.body);
+    await cleverFormsLifecycle.emit('form.beforeCreate', { data });
     const document = await strapi.documents(FORM_UID).create({ data } as any);
+    await cleverFormsLifecycle.emit('form.afterCreate', { document });
     ctx.body = { data: document };
   },
 
   async duplicate(ctx: any) {
     const source: any = await strapi.documents(FORM_UID).findOne({ documentId: ctx.params.documentId } as any);
     if (!source) return ctx.notFound('Form not found');
-    const copy = normalize({ ...source, name: `${source.name} Copy`, slug: `${source.slug}-copy`, status: 'draft' });
+    const copy = normalize({ ...source, name: `${source.name} Copy`, slug: `${source.slug}-copy`, status: 'draft', version: 1 });
+    await cleverFormsLifecycle.emit('form.beforeCreate', { data: copy, sourceDocumentId: source.documentId });
     const document = await strapi.documents(FORM_UID).create({ data: copy } as any);
+    await cleverFormsLifecycle.emit('form.afterCreate', { document, sourceDocumentId: source.documentId });
     ctx.body = { data: document };
   },
 
   async update(ctx: any) {
     const data = normalize(ctx.request.body?.data || ctx.request.body);
+    await cleverFormsLifecycle.emit('form.beforeUpdate', { documentId: ctx.params.documentId, data });
     const document = await strapi.documents(FORM_UID).update({ documentId: ctx.params.documentId, data } as any);
+    await cleverFormsLifecycle.emit('form.afterUpdate', { document });
     ctx.body = { data: document };
   },
 
   async publish(ctx: any) {
-    await strapi.documents(FORM_UID).update({ documentId: ctx.params.documentId, data: { status: 'published' } } as any);
+    const current: any = await strapi.documents(FORM_UID).findOne({ documentId: ctx.params.documentId } as any);
+    if (!current) return ctx.notFound('Form not found');
+    const nextVersion = Math.max(1, Number(current.version || 1)) + 1;
+    await cleverFormsLifecycle.emit('form.beforePublish', { document: current, nextVersion });
+    await strapi.documents(FORM_UID).update({
+      documentId: ctx.params.documentId,
+      data: {
+        status: 'published',
+        version: nextVersion,
+        schemaVersion: current.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
+        extensionApiVersion: current.extensionApiVersion ?? CLEVER_FORMS_EXTENSION_API_VERSION,
+      },
+    } as any);
     const document = await strapi.documents(FORM_UID).publish({ documentId: ctx.params.documentId } as any);
+    await cleverFormsLifecycle.emit('form.afterPublish', { document });
     ctx.body = { data: document };
   },
 
