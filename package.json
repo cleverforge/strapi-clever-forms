@@ -13,7 +13,8 @@
     "./package.json": "./package.json",
     "./strapi-admin": { "source": "./admin/src/index.ts", "import": "./dist/admin/index.mjs", "require": "./dist/admin/index.js", "default": "./dist/admin/index.js" },
     "./strapi-server": { "source": "./server/src/index.ts", "import": "./dist/server/index.mjs", "require": "./dist/server/index.js", "default": "./dist/server/index.js" },
-    "./react": { "source": "./client/react/index.tsx", "import": "./dist/client/react/index.mjs", "require": "./dist/client/react/index.js", "default": "./dist/client/react/index.js" }
+    "./react": { "source": "./client/react/index.tsx", "import": "./dist/client/react/index.mjs", "require": "./dist/client/react/index.js", "default": "./dist/client/react/index.js" },
+    "./core": { "source": "./shared/index.ts", "import": "./dist/shared/index.mjs", "require": "./dist/shared/index.js", "default": "./dist/shared/index.js" }
   },
   "files": ["dist", "README.md", "LICENSE", "NOTICE", "SECURITY.md"],
   "scripts": {
@@ -24,8 +25,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:package": "node scripts/verify-package.mjs",
     "pack:check": "npm pack --dry-run",
-    "validate:release": "npm run typecheck && npm test && npm run build && npm run verify && npm run pack:check"
+    "validate:release": "npm run typecheck && npm test && npm run build && npm run verify && npm run verify:package && npm run pack:check"
   },
   "dependencies": { "zod": "^3.24.0" },
   "devDependencies": {
@@ -49,10 +51,5 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "engines": { "node": ">=20.0.0" },
-  "strapi": {
-    "kind": "plugin",
-    "name": "clever-forms",
-    "displayName": "CleverForms",
-    "description": "Strapi 5-native forms and submissions by CleverForge"
-  }
+  "strapi": { "kind": "plugin", "name": "clever-forms", "displayName": "CleverForms", "description": "Strapi 5-native forms and submissions by CleverForge" }
 }
