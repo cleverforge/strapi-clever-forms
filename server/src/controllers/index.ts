@@ -1,2 +1,7 @@
 import publicController from './public';
-export default { public: publicController };
+import adminController from './admin';
+
+export default {
+  public: publicController,
+  admin: adminController,
+};
