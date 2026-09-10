@@ -21,6 +21,8 @@
       "default": "draft",
       "required": true
     },
+    "schemaVersion": { "type": "integer", "default": 1, "required": true, "min": 1 },
+    "extensionApiVersion": { "type": "integer", "default": 1, "required": true, "min": 1 },
     "requiresAuthentication": { "type": "boolean", "default": false },
     "version": { "type": "integer", "default": 1, "min": 1 },
     "pages": { "type": "json", "required": true },
