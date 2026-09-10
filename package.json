@@ -4,39 +4,16 @@
   "description": "A Strapi-native form builder and workflow engine by CleverForge.",
   "keywords": ["strapi", "plugin", "forms", "form-builder", "cleverforms", "cleverforge"],
   "license": "MIT",
-  "author": {
-    "name": "CleverForge",
-    "url": "https://cleverforge.ai"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cleverforge/strapi-clever-forms.git"
-  },
+  "author": {"name": "CleverForge", "url": "https://cleverforge.ai"},
+  "repository": {"type": "git", "url": "https://github.com/cleverforge/strapi-clever-forms.git"},
   "homepage": "https://github.com/cleverforge/strapi-clever-forms#readme",
-  "bugs": {
-    "url": "https://github.com/cleverforge/strapi-clever-forms/issues"
-  },
+  "bugs": {"url": "https://github.com/cleverforge/strapi-clever-forms/issues"},
   "type": "commonjs",
   "exports": {
     "./package.json": "./package.json",
-    "./strapi-admin": {
-      "source": "./admin/src/index.ts",
-      "import": "./dist/admin/index.mjs",
-      "require": "./dist/admin/index.js",
-      "default": "./dist/admin/index.js"
-    },
-    "./strapi-server": {
-      "source": "./server/src/index.ts",
-      "import": "./dist/server/index.mjs",
-      "require": "./dist/server/index.js",
-      "default": "./dist/server/index.js"
-    },
-    "./react": {
-      "source": "./client/react/index.tsx",
-      "import": "./dist/client/react/index.mjs",
-      "require": "./dist/client/react/index.js",
-      "default": "./dist/client/react/index.js"
-    }
+    "./strapi-admin": {"source": "./admin/src/index.ts", "import": "./dist/admin/index.mjs", "require": "./dist/admin/index.js", "default": "./dist/admin/index.js"},
+    "./strapi-server": {"source": "./server/src/index.ts", "import": "./dist/server/index.mjs", "require": "./dist/server/index.js", "default": "./dist/server/index.js"},
+    "./react": {"source": "./client/react/index.tsx", "import": "./dist/client/react/index.mjs", "require": "./dist/client/react/index.js", "default": "./dist/client/react/index.js"}
   },
   "files": ["dist", "README.md", "LICENSE", "NOTICE"],
   "scripts": {
@@ -46,11 +23,11 @@
     "watch:link": "strapi-plugin watch:link",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:package": "node scripts/verify-package.mjs",
+    "check": "npm run typecheck && npm test && npm run build && npm run verify && npm run verify:package"
   },
-  "dependencies": {
-    "zod": "^3.24.0"
-  },
+  "dependencies": {"zod": "^3.24.0"},
   "devDependencies": {
     "@strapi/sdk-plugin": "^6.1.1",
     "@strapi/strapi": "^5.0.0",
@@ -69,13 +46,6 @@
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
   },
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "strapi": {
-    "kind": "plugin",
-    "name": "clever-forms",
-    "displayName": "CleverForms",
-    "description": "Strapi-native forms and submissions by CleverForge"
-  }
+  "engines": {"node": ">=20.0.0"},
+  "strapi": {"kind": "plugin", "name": "clever-forms", "displayName": "CleverForms", "description": "Strapi-native forms and submissions by CleverForge"}
 }
