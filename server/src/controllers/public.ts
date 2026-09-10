@@ -1,4 +1,6 @@
 import { validateSubmission, CleverFormsValidationError } from '../utils/validation';
+import { CLEVER_FORMS_SCHEMA_VERSION } from '../../../shared/types';
+import { cleverFormsLifecycle } from '../../../shared/lifecycle';
 
 export default ({ strapi }: { strapi: any }) => ({
   async getBySlug(ctx: any) {
@@ -14,18 +16,35 @@ export default ({ strapi }: { strapi: any }) => ({
     if (form.requiresAuthentication && !ctx.state?.user) return ctx.unauthorized('Authentication required');
 
     try {
+      await cleverFormsLifecycle.emit('submission.beforeValidate', { form, data: ctx.request.body?.data ?? {} });
       const cleanData = validateSubmission(form, ctx.request.body?.data ?? {});
+      await cleverFormsLifecycle.emit('submission.afterValidate', { form, data: cleanData });
+
+      const submittedAt = new Date().toISOString();
+      const envelope = {
+        formDocumentId: form.documentId,
+        formVersion: form.version ?? 1,
+        formSchemaVersion: form.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
+        submittedAt,
+        data: cleanData,
+      };
+
+      await cleverFormsLifecycle.emit('submission.beforeCreate', { form, submission: envelope });
+
       const submission = await strapi.documents('plugin::clever-forms.submission').create({
         data: {
           form: form.documentId,
-          formVersion: form.version ?? 1,
+          formVersion: envelope.formVersion,
+          formSchemaVersion: envelope.formSchemaVersion,
           data: cleanData,
           metadata: { source: ctx.request.body?.metadata?.source ?? 'api' },
-          submittedAt: new Date().toISOString(),
+          submittedAt,
           status: 'received',
           userAgent: ctx.request.headers['user-agent'] ?? null,
         },
       });
+
+      await cleverFormsLifecycle.emit('submission.afterCreate', { form, submission: { ...envelope, documentId: submission.documentId } });
       ctx.status = 201;
       ctx.body = { data: { documentId: submission.documentId, status: submission.status } };
     } catch (error) {
