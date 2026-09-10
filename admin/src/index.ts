@@ -1,4 +1,8 @@
+import { cleverFormsExtensions } from './extensions/registry';
+
 export const PLUGIN_ID = 'clever-forms';
+export { cleverFormsExtensions } from './extensions/registry';
+export type { CleverFieldDefinition, CleverSettingsPanel, CleverFormAction } from './extensions/registry';
 
 export default {
   register(app: any) {
@@ -13,6 +17,9 @@ export default {
     app.registerPlugin({
       id: PLUGIN_ID,
       name: 'CleverForms',
+      apis: {
+        extensions: cleverFormsExtensions,
+      },
     });
   },
   bootstrap() {},
