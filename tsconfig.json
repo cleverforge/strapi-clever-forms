@@ -13,5 +13,5 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["admin/src", "server/src", "client/react", "tests"]
+  "include": ["admin/src", "server/src", "client/react", "shared", "tests"]
 }
