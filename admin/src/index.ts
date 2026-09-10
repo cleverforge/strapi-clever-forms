@@ -1,7 +1,10 @@
 import type { StrapiApp } from '@strapi/strapi/admin';
 import { PuzzlePiece } from '@strapi/icons';
+import { cleverFormsExtensions } from './extensions/registry';
 
 export const PLUGIN_ID = 'clever-forms';
+export { cleverFormsExtensions } from './extensions/registry';
+export type { CleverFieldDefinition, CleverSettingsPanel, CleverFormAction } from './extensions/registry';
 
 export default {
   register(app: StrapiApp) {
@@ -13,7 +16,11 @@ export default {
       permissions: [],
     });
 
-    app.registerPlugin({ id: PLUGIN_ID, name: 'CleverForms' });
+    app.registerPlugin({
+      id: PLUGIN_ID,
+      name: 'CleverForms',
+      apis: { extensions: cleverFormsExtensions },
+    });
   },
 
   bootstrap() {},
