@@ -1,55 +1,48 @@
-import { validateSubmission, CleverFormsValidationError } from '../utils/validation';
-import { CLEVER_FORMS_SCHEMA_VERSION } from '../../../shared/types';
-import { cleverFormsLifecycle } from '../../../shared/lifecycle';
+import { CleverFormsValidationError, validateSubmission } from '../utils/validation';
+
+const FORM_UID = 'plugin::clever-forms.form';
+const SUBMISSION_UID = 'plugin::clever-forms.submission';
 
 export default ({ strapi }: { strapi: any }) => ({
   async getBySlug(ctx: any) {
     const form = await strapi.plugin('clever-forms').service('form').findPublishedBySlug(ctx.params.slug);
+
     if (!form) return ctx.notFound('Form not found');
     if (form.requiresAuthentication && !ctx.state?.user) return ctx.unauthorized('Authentication required');
-    ctx.body = { data: form };
+
+    const { submissions: _submissions, ...publicForm } = form;
+    ctx.body = { data: publicForm };
   },
 
   async submit(ctx: any) {
     const form = await strapi.plugin('clever-forms').service('form').findPublishedBySlug(ctx.params.slug);
+
     if (!form) return ctx.notFound('Form not found');
     if (form.requiresAuthentication && !ctx.state?.user) return ctx.unauthorized('Authentication required');
 
     try {
-      await cleverFormsLifecycle.emit('submission.beforeValidate', { form, data: ctx.request.body?.data ?? {} });
       const cleanData = validateSubmission(form, ctx.request.body?.data ?? {});
-      await cleverFormsLifecycle.emit('submission.afterValidate', { form, data: cleanData });
-
-      const submittedAt = new Date().toISOString();
-      const envelope = {
-        formDocumentId: form.documentId,
-        formVersion: form.version ?? 1,
-        formSchemaVersion: form.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
-        submittedAt,
-        data: cleanData,
-      };
-
-      await cleverFormsLifecycle.emit('submission.beforeCreate', { form, submission: envelope });
-
-      const submission = await strapi.documents('plugin::clever-forms.submission').create({
+      const submission = await strapi.documents(SUBMISSION_UID).create({
         data: {
           form: form.documentId,
-          formVersion: envelope.formVersion,
-          formSchemaVersion: envelope.formSchemaVersion,
+          formVersion: form.schemaVersion ?? 1,
           data: cleanData,
           metadata: { source: ctx.request.body?.metadata?.source ?? 'api' },
-          submittedAt,
+          submittedAt: new Date().toISOString(),
           status: 'received',
-          userAgent: ctx.request.headers['user-agent'] ?? null,
-        },
+          userAgent: ctx.request.headers['user-agent'] ?? null
+        }
       });
 
-      await cleverFormsLifecycle.emit('submission.afterCreate', { form, submission: { ...envelope, documentId: submission.documentId } });
       ctx.status = 201;
       ctx.body = { data: { documentId: submission.documentId, status: submission.status } };
     } catch (error) {
-      if (error instanceof CleverFormsValidationError) return ctx.badRequest(error.message, { errors: error.details });
+      if (error instanceof CleverFormsValidationError) {
+        return ctx.badRequest(error.message, { errors: error.details });
+      }
       throw error;
     }
-  },
+  }
 });
+
+export { FORM_UID, SUBMISSION_UID };

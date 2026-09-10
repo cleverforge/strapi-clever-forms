@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  core:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,6 +18,24 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm install
-      - run: npm run typecheck
-      - run: npm test
+      - run: npm run validate:release
+
+  strapi5-fixture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
       - run: npm run build
+      - name: Install Strapi 5 fixture
+        working-directory: tests/fixtures/strapi5-app
+        run: npm install
+      - name: Build fixture with CleverForms installed
+        working-directory: tests/fixtures/strapi5-app
+        run: npm run build
+      - name: Boot Strapi and verify plugin registration
+        working-directory: tests/fixtures/strapi5-app
+        run: npm run smoke

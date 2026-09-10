@@ -1,0 +1,19 @@
+{
+  "name": "cleverforms-strapi5-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "strapi build",
+    "smoke": "node scripts/smoke.cjs"
+  },
+  "dependencies": {
+    "@cleverforge/strapi-clever-forms": "file:../../..",
+    "@strapi/strapi": "^5.0.0",
+    "better-sqlite3": "^11.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.0",
+    "styled-components": "^6.1.0"
+  },
+  "engines": { "node": ">=20.0.0" }
+}
