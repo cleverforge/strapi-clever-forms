@@ -13,14 +13,11 @@
     "name": { "type": "string", "required": true },
     "slug": { "type": "uid", "targetField": "name", "required": true },
     "description": { "type": "text" },
-    "lifecycle": {
-      "type": "enumeration",
-      "enum": ["active", "archived"],
-      "default": "active",
-      "required": true
-    },
+    "lifecycle": { "type": "enumeration", "enum": ["active", "archived"], "default": "active", "required": true },
+    "schemaVersion": { "type": "integer", "default": 1, "required": true, "min": 1 },
+    "extensionApiVersion": { "type": "integer", "default": 1, "required": true, "min": 1 },
     "requiresAuthentication": { "type": "boolean", "default": false },
-    "schemaVersion": { "type": "integer", "default": 1, "min": 1, "required": true },
+    "version": { "type": "integer", "default": 1, "min": 1 },
     "pages": { "type": "json", "required": true },
     "settings": { "type": "json" },
     "confirmation": { "type": "json" },
