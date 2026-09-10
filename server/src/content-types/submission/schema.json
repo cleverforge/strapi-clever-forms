@@ -1,0 +1,17 @@
+{
+  "kind": "collectionType",
+  "collectionName": "clever_form_submissions",
+  "info": { "singularName": "submission", "pluralName": "submissions", "displayName": "CleverForm Submission", "description": "Submitted CleverForms entries" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "form": { "type": "relation", "relation": "manyToOne", "target": "plugin::clever-forms.form", "inversedBy": "submissions", "required": true },
+    "formVersion": { "type": "integer", "required": true, "min": 1 },
+    "data": { "type": "json", "required": true },
+    "metadata": { "type": "json" },
+    "status": { "type": "enumeration", "enum": ["received", "processing", "completed", "rejected"], "default": "received", "required": true },
+    "submittedAt": { "type": "datetime", "required": true },
+    "ipHash": { "type": "string", "private": true },
+    "userAgent": { "type": "text", "private": true }
+  }
+}
