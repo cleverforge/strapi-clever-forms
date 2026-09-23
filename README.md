@@ -2,7 +2,7 @@
 
 **CleverForms** is a free, MIT-licensed Strapi 5 form builder and submission runtime by CleverForge.
 
-> **Status:** release candidate. Current package version: `1.0.0-rc.3`.
+**Current stable version:** `1.0.0`.
 
 ## What Core includes
 
@@ -99,7 +99,7 @@ npm run build
 npm run smoke
 ```
 
-See `docs/RELEASE-CANDIDATE.md`, `docs/STRAPI5-COMPLIANCE.md`, `docs/SECURITY.md`, and `docs/TEMPLATES.md`.
+See `docs/RELEASE-CANDIDATE.md`, `docs/STRAPI5-COMPLIANCE.md`, `docs/SECURITY.md`, and `docs/TEMPLATES.md` for validation and implementation details.
 
 ## Product boundary
 
