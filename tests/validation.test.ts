@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateSubmission, CleverFormsValidationError } from '../server/src/utils/validation';
 
 const form: any = {
-  name: 'Contact', slug: 'contact', status: 'published', version: 1,
+  name: 'Contact', slug: 'contact', lifecycle: 'active', publishedAt: '2026-01-01T00:00:00.000Z', version: 1,
   pages: [{ fields: [
     { name: 'email', type: 'email', required: true },
     { name: 'topic', type: 'select', options: [{ label: 'Support', value: 'support' }] },
