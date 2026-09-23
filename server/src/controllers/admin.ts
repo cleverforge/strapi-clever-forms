@@ -5,21 +5,24 @@ const FORM_UID = 'plugin::clever-forms.form';
 const SUBMISSION_UID = 'plugin::clever-forms.submission';
 
 const normalize = (body: any) => ({
-  name: String(body?.name || 'Untitled form').trim(),
+  name: String(body?.name || 'Untitled form').trim().slice(0, 200),
   slug: String(body?.slug || body?.name || 'untitled-form')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, ''),
-  description: body?.description || '',
-  status: body?.status || 'draft',
-  schemaVersion: body?.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
-  extensionApiVersion: body?.extensionApiVersion ?? CLEVER_FORMS_EXTENSION_API_VERSION,
-  version: Math.max(1, Number(body?.version || 1)),
+    .replace(/^-|-$/g, '')
+    .slice(0, 160),
+  description: String(body?.description || '').slice(0, 10_000),
+  lifecycle: body?.lifecycle === 'archived' ? 'archived' : 'active',
+  schemaVersion: CLEVER_FORMS_SCHEMA_VERSION,
+  extensionApiVersion: CLEVER_FORMS_EXTENSION_API_VERSION,
+  version: Math.max(1, Math.min(1_000_000, Number(body?.version || 1))),
   requiresAuthentication: Boolean(body?.requiresAuthentication),
   pages: Array.isArray(body?.pages) ? body.pages : [],
-  settings: body?.settings || {},
-  confirmation: body?.confirmation || { type: 'message', message: 'Thank you for your submission.' },
+  settings: body?.settings && typeof body.settings === 'object' ? body.settings : {},
+  confirmation: body?.confirmation && typeof body.confirmation === 'object'
+    ? body.confirmation
+    : { type: 'message', message: 'Thank you for your submission.' },
 });
 
 const paging = (ctx: any) => ({
@@ -30,7 +33,7 @@ const paging = (ctx: any) => ({
 export default {
   async list(ctx: any) {
     const { page, pageSize } = paging(ctx);
-    const search = String(ctx.query?.search || '').trim();
+    const search = String(ctx.query?.search || '').trim().slice(0, 200);
     const filters: any = search ? { $or: [{ name: { $containsi: search } }, { slug: { $containsi: search } }] } : {};
     const documents = await strapi.documents(FORM_UID).findMany({
       sort: ['updatedAt:desc'], status: 'draft', filters,
@@ -51,16 +54,18 @@ export default {
     await cleverFormsLifecycle.emit('form.beforeCreate', { data });
     const document = await strapi.documents(FORM_UID).create({ data } as any);
     await cleverFormsLifecycle.emit('form.afterCreate', { document });
+    ctx.status = 201;
     ctx.body = { data: document };
   },
 
   async duplicate(ctx: any) {
     const source: any = await strapi.documents(FORM_UID).findOne({ documentId: ctx.params.documentId } as any);
     if (!source) return ctx.notFound('Form not found');
-    const copy = normalize({ ...source, name: `${source.name} Copy`, slug: `${source.slug}-copy`, status: 'draft', version: 1 });
+    const copy = normalize({ ...source, name: `${source.name} Copy`, slug: `${source.slug}-copy`, lifecycle: 'active', version: 1 });
     await cleverFormsLifecycle.emit('form.beforeCreate', { data: copy, sourceDocumentId: source.documentId });
     const document = await strapi.documents(FORM_UID).create({ data: copy } as any);
     await cleverFormsLifecycle.emit('form.afterCreate', { document, sourceDocumentId: source.documentId });
+    ctx.status = 201;
     ctx.body = { data: document };
   },
 
@@ -75,15 +80,17 @@ export default {
   async publish(ctx: any) {
     const current: any = await strapi.documents(FORM_UID).findOne({ documentId: ctx.params.documentId } as any);
     if (!current) return ctx.notFound('Form not found');
+    if (current.lifecycle === 'archived') return ctx.badRequest('Archived forms cannot be published.');
+
     const nextVersion = Math.max(1, Number(current.version || 1)) + 1;
     await cleverFormsLifecycle.emit('form.beforePublish', { document: current, nextVersion });
     await strapi.documents(FORM_UID).update({
       documentId: ctx.params.documentId,
       data: {
-        status: 'published',
+        lifecycle: 'active',
         version: nextVersion,
-        schemaVersion: current.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
-        extensionApiVersion: current.extensionApiVersion ?? CLEVER_FORMS_EXTENSION_API_VERSION,
+        schemaVersion: CLEVER_FORMS_SCHEMA_VERSION,
+        extensionApiVersion: CLEVER_FORMS_EXTENSION_API_VERSION,
       },
     } as any);
     const document = await strapi.documents(FORM_UID).publish({ documentId: ctx.params.documentId } as any);
@@ -98,19 +105,19 @@ export default {
 
   async listSubmissions(ctx: any) {
     const { page, pageSize } = paging(ctx);
-    const search = String(ctx.query?.search || '').trim();
-    const filters: any = search ? { data: { $containsi: search } } : {};
     const documents = await strapi.documents(SUBMISSION_UID).findMany({
-      sort: ['submittedAt:desc'], populate: ['form'], filters,
+      sort: ['submittedAt:desc'], populate: ['form'],
       start: (page - 1) * pageSize, limit: pageSize,
     } as any);
-    const total = await strapi.documents(SUBMISSION_UID).count({ filters } as any);
+    const total = await strapi.documents(SUBMISSION_UID).count({} as any);
+    ctx.set('Cache-Control', 'no-store');
     ctx.body = { data: documents, meta: { pagination: { page, pageSize, pageCount: Math.ceil(total / pageSize), total } } };
   },
 
   async findSubmission(ctx: any) {
     const document = await strapi.documents(SUBMISSION_UID).findOne({ documentId: ctx.params.documentId, populate: ['form'] } as any);
     if (!document) return ctx.notFound('Submission not found');
+    ctx.set('Cache-Control', 'no-store');
     ctx.body = { data: document };
   },
 };
