@@ -10,9 +10,14 @@ const form: any = {
 };
 
 describe('validateSubmission', () => {
-  it('accepts valid values and strips unknown keys', () => {
-    expect(validateSubmission(form, { email: 'a@example.com', topic: 'support', admin: true }))
+  it('accepts configured valid values', () => {
+    expect(validateSubmission(form, { email: 'a@example.com', topic: 'support' }))
       .toEqual({ email: 'a@example.com', topic: 'support' });
+  });
+
+  it('rejects unknown fields instead of silently accepting client-controlled data', () => {
+    expect(() => validateSubmission(form, { email: 'a@example.com', admin: true }))
+      .toThrow(CleverFormsValidationError);
   });
 
   it('rejects invalid configured choices', () => {
@@ -22,5 +27,10 @@ describe('validateSubmission', () => {
 
   it('requires configured required fields', () => {
     expect(() => validateSubmission(form, {})).toThrow(CleverFormsValidationError);
+  });
+
+  it('rejects oversized string values', () => {
+    expect(() => validateSubmission(form, { email: 'a'.repeat(50_001) }))
+      .toThrow(CleverFormsValidationError);
   });
 });
