@@ -1,24 +1,25 @@
 # Clever Forms for Strapi
 
-**Clever Forms** is a Strapi-native form builder and form runtime by CleverForge. The public Core is MIT licensed and designed to remain useful without requiring a commercial subscription.
+**Clever Forms** is a Strapi 5-native form builder and submission runtime by CleverForge. The Strapi Core is MIT licensed and designed to be genuinely useful without a commercial subscription.
 
-> **Status:** pre-1.0 development. Current package version: `0.1.0-alpha.1`.
+> **Status:** pre-1.0 development. Current package version: `0.1.0-alpha.2`.
 
-## Current Core foundation
+## Core foundation
 
-- Strapi 5 plugin packaging
+- Strapi 5 plugin packaging and Document Service
 - Form and Submission plugin content types
 - multi-page JSON form schema
-- public form retrieval by slug
-- server-side submission validation
-- required, email, number, and configured-choice validation
-- unknown-field stripping
-- protected submission metadata handling
+- public published-form retrieval by slug
+- server-side allow-list validation
+- required, email, number, checkbox, and configured-choice validation
+- bounded submission payloads and prototype-key protection
+- server-owned protected submission metadata
+- explicit public-form serialization
+- granular Strapi Admin RBAC actions
 - admin plugin registration
 - English and Spanish admin translations
 - React renderer foundation
-- tests and CI
-- local Strapi 5 integration test app
+- tests, CI, package verification, and a real Strapi 5 fixture
 
 ## Installation
 
@@ -38,7 +39,7 @@ export default () => ({
 })
 ```
 
-## API foundation
+## Public API
 
 Retrieve a published form:
 
@@ -59,7 +60,7 @@ Content-Type: application/json
 }
 ```
 
-All public input is validated again on the Strapi server.
+Public input is validated again on the Strapi server. Unknown fields are rejected and client-supplied submission metadata is not trusted.
 
 ## React renderer
 
@@ -71,30 +72,25 @@ export function ContactPage({ form }) {
 }
 ```
 
-## Integration validation
-
-This repository includes a clean Strapi 5 application under `test-app/` that consumes CleverForms using a local `file:..` dependency.
-
-Run the release gate:
+## Release validation
 
 ```bash
 npm install
-npm run typecheck
-npm test
-npm run build
-npm run verify
-node scripts/verify-package.mjs
+npm run validate:release
 
-cd test-app
+cd tests/fixtures/strapi5-app
 npm install
 npm run build
+npm run smoke
 ```
 
-See `docs/MILESTONE-1.5.md` for the full boot and smoke-test flow.
+See `docs/STRAPI5-COMPLIANCE.md` and `docs/SECURITY.md`.
 
-## Product architecture
+## Product boundary
 
-The public Core remains separate from commercial CleverForge products such as Forms Pro, Clever Connect, Clever AI, Communications, Analytics, and Payments.
+This Strapi package is free Core. It does not require license keys, entitlements, paid plans, or external activation. Generic extension hooks remain available for open integrations and future compatibility.
+
+CleverForge may offer commercial CleverForms products through ecosystems that permit paid extensions. Any future commercial Strapi distribution will be evaluated against Strapi's rules in effect at that time rather than being embedded or paywalled in today's Core.
 
 ## License
 
