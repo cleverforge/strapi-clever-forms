@@ -1,3 +1,5 @@
+import type { CleverConditionGroup } from '../../shared/types';
+
 export type CleverFieldType =
   | 'text' | 'textarea' | 'email' | 'number' | 'tel'
   | 'select' | 'radio' | 'checkbox' | 'checkboxGroup' | 'multiselect'
@@ -8,10 +10,13 @@ export interface CleverField {
   type: CleverFieldType;
   label?: string;
   required?: boolean;
+  placeholder?: string;
+  helpText?: string;
   options?: Array<{ label: string; value: string }>;
+  conditions?: CleverConditionGroup | null;
 }
 
-export interface CleverPage { title?: string; fields: CleverField[] }
+export interface CleverPage { title?: string; description?: string; fields: CleverField[] }
 
 export interface CleverFormDefinition {
   id?: number;
