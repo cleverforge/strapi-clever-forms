@@ -1,18 +1,19 @@
 import type { StrapiApp } from '@strapi/strapi/admin';
-import { PuzzlePiece } from '@strapi/icons';
-import { cleverFormsExtensions } from './extensions/registry';
+import { cleverFormsExtensions } from './extensions/registry.js';
 
 export const PLUGIN_ID = 'clever-forms';
-export { cleverFormsExtensions } from './extensions/registry';
-export type { CleverFieldDefinition, CleverSettingsPanel, CleverFormAction } from './extensions/registry';
+export { cleverFormsExtensions } from './extensions/registry.js';
+export type { CleverFieldDefinition, CleverSettingsPanel, CleverFormAction } from './extensions/registry.js';
+
+const CleverFormsIcon = () => null;
 
 export default {
   register(app: StrapiApp) {
     app.addMenuLink({
       to: `plugins/${PLUGIN_ID}`,
-      icon: PuzzlePiece,
+      icon: CleverFormsIcon,
       intlLabel: { id: `${PLUGIN_ID}.plugin.name`, defaultMessage: 'CleverForms' },
-      Component: async () => import('./pages/App'),
+      Component: async () => import('./pages/App.js'),
       permissions: [],
     });
 
