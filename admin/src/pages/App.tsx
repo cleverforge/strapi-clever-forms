@@ -308,7 +308,7 @@ export function App() {
       const saved = form.documentId
         ? await client.put(`/clever-forms/forms/${form.documentId}`, { data: form })
         : await client.post('/clever-forms/forms', { data: form });
-      const doc: any = saved.data?.data || saved.data;
+      const savedData = (saved as { data?: any }).data;\n      const doc: any = savedData?.data || savedData;
       const documentId = doc.documentId || form.documentId;
       setForm((prev) => ({ ...prev, ...doc, documentId }));
       if (publish && documentId) {
