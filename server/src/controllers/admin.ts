@@ -98,6 +98,18 @@ export default {
     ctx.body = { data: document };
   },
 
+  async setLifecycle(ctx: any) {
+    const lifecycle = ctx.request.body?.data?.lifecycle;
+    if (!['active', 'archived'].includes(lifecycle)) return ctx.badRequest('Lifecycle must be active or archived.');
+    const current: any = await strapi.documents(FORM_UID).findOne({ documentId: ctx.params.documentId } as any);
+    if (!current) return ctx.notFound('Form not found');
+    const document = await strapi.documents(FORM_UID).update({
+      documentId: ctx.params.documentId,
+      data: { lifecycle },
+    } as any);
+    ctx.body = { data: document };
+  },
+
   async remove(ctx: any) {
     await strapi.documents(FORM_UID).delete({ documentId: ctx.params.documentId } as any);
     ctx.body = { data: { documentId: ctx.params.documentId } };
