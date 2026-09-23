@@ -13,7 +13,10 @@ export default {
       to: `plugins/${PLUGIN_ID}`,
       icon: CleverFormsIcon,
       intlLabel: { id: `${PLUGIN_ID}.plugin.name`, defaultMessage: 'CleverForms' },
-      Component: async () => import('./pages/App.js'),
+      Component: async () => {
+        const module = await import('./pages/App.js');
+        return { default: module.default };
+      },
       permissions: [],
     });
 
