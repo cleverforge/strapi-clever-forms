@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/cleverforge/strapi-clever-forms.git"
+    "url": "git+https://github.com/cleverforge/strapi-clever-forms.git"
   },
   "homepage": "https://github.com/cleverforge/strapi-clever-forms#readme",
   "bugs": {
