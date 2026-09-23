@@ -1,8 +1,25 @@
 import * as React from 'react';
+import {
+  Box,
+  Button,
+  Checkbox,
+  Field,
+  Flex,
+  SingleSelect,
+  SingleSelectOption,
+  TextInput,
+  Textarea,
+  Typography,
+} from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { exportForm, importForm } from '../utils/form-transfer';
 
-type Field = {
+type Condition = {
+  logic: 'and' | 'or';
+  rules: Array<{ field: string; operator: string; value?: unknown }>;
+};
+
+type FieldDef = {
   id: string;
   type: string;
   name: string;
@@ -11,10 +28,11 @@ type Field = {
   helpText?: string;
   required?: boolean;
   options?: { label: string; value: string }[];
-  conditions?: { logic: 'and' | 'or'; rules: Array<{ field: string; operator: string; value?: unknown }> } | null;
+  conditions?: Condition | null;
 };
 
-type Page = { id: string; title: string; description?: string; fields: Field[] };
+type Page = { id: string; title: string; description?: string; fields: FieldDef[] };
+
 type FormDoc = {
   documentId?: string;
   name: string;
@@ -24,8 +42,8 @@ type FormDoc = {
   publishedAt?: string | null;
   requiresAuthentication?: boolean;
   pages: Page[];
-  confirmation?: any;
-  settings?: any;
+  confirmation?: { type?: string; message?: string } | null;
+  settings?: Record<string, unknown> | null;
 };
 
 const fieldTypes = [
@@ -33,50 +51,103 @@ const fieldTypes = [
   ['tel', 'Telephone'], ['select', 'Select'], ['radio', 'Radio'], ['checkbox', 'Checkbox'],
   ['multiselect', 'Multi-select'], ['date', 'Date'], ['time', 'Time'], ['heading', 'Heading'],
   ['paragraph', 'Paragraph'], ['hidden', 'Hidden'],
-];
+] as const;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 const blankForm = (): FormDoc => ({
-  name: 'Untitled Form', slug: 'untitled-form', lifecycle: 'active',
+  name: 'Untitled Form',
+  slug: 'untitled-form',
+  lifecycle: 'active',
   pages: [{ id: uid(), title: 'Page 1', fields: [] }],
   confirmation: { type: 'message', message: 'Thank you for your submission.' },
   settings: {},
 });
 
-const css: Record<string, React.CSSProperties> = {
-  shell: { padding: 28, maxWidth: 1500, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 24 },
-  tabs: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  button: { padding: '9px 14px', borderRadius: 6, border: '1px solid #dcdce4', background: '#fff', cursor: 'pointer', fontWeight: 600 },
-  primary: { padding: '9px 14px', borderRadius: 6, border: 0, background: '#4945ff', color: '#fff', cursor: 'pointer', fontWeight: 700 },
-  card: { border: '1px solid #eaeaef', borderRadius: 8, background: '#fff', padding: 18 },
-  grid: { display: 'grid', gridTemplateColumns: '240px minmax(420px,1fr) 310px', gap: 16, alignItems: 'start' },
-  input: { width: '100%', boxSizing: 'border-box', padding: 9, border: '1px solid #dcdce4', borderRadius: 5, marginTop: 5 },
-  label: { display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 12 },
-  fieldCard: { border: '1px solid #dcdce4', borderRadius: 6, padding: 12, marginBottom: 8, cursor: 'pointer', background: '#fff' },
-  palette: { width: '100%', textAlign: 'left', padding: 9, marginBottom: 6, borderRadius: 5, border: '1px solid #eaeaef', background: '#f6f6f9', cursor: 'pointer' },
-};
+function Panel({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) {
+  return <Box background="neutral0" borderColor="neutral200" borderWidth="1px" borderStyle="solid" hasRadius padding={5} {...props}>{children}</Box>;
+}
+
+function TextField({
+  label, value, onChange, placeholder, hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  hint?: string;
+}) {
+  return (
+    <Field.Root hint={hint}>
+      <Field.Label>{label}</Field.Label>
+      <TextInput value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      <Field.Hint />
+    </Field.Root>
+  );
+}
+
+function TextAreaField({
+  label, value, onChange, hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: string;
+}) {
+  return (
+    <Field.Root hint={hint}>
+      <Field.Label>{label}</Field.Label>
+      <Textarea value={value} onChange={(event) => onChange(event.target.value)} />
+      <Field.Hint />
+    </Field.Root>
+  );
+}
 
 function Preview({ form }: { form: FormDoc }) {
-  return <div style={{ ...css.card, background: '#f6f6f9' }}>
-    <h2 style={{ marginTop: 0 }}>{form.name}</h2>
-    {form.description && <p>{form.description}</p>}
-    {form.pages.map((page) => <section key={page.id} style={{ marginBottom: 24 }}>
-      <h3>{page.title}</h3>
-      {page.fields.map((field) => <div key={field.id} style={{ marginBottom: 14 }}>
-        {field.type === 'heading' ? <h4>{field.label}</h4> : field.type === 'paragraph' ? <p>{field.label}</p> : <>
-          <label style={{ fontWeight: 650 }}>{field.label}{field.required ? ' *' : ''}</label>
-          {field.type === 'textarea' ? <textarea style={css.input} placeholder={field.placeholder} disabled /> :
-           ['select','multiselect'].includes(field.type) ? <select style={css.input} disabled><option>Select…</option>{field.options?.map(o => <option key={o.value}>{o.label}</option>)}</select> :
-           field.type === 'radio' ? <div>{field.options?.map(o => <label key={o.value} style={{ display: 'block' }}><input type="radio" disabled /> {o.label}</label>)}</div> :
-           field.type === 'checkbox' ? <div><input type="checkbox" disabled /> {field.helpText || field.label}</div> :
-           <input style={css.input} type={field.type === 'tel' ? 'tel' : field.type} placeholder={field.placeholder} disabled />}
-          {field.helpText && field.type !== 'checkbox' && <small>{field.helpText}</small>}
-        </>}
-      </div>)}
-    </section>)}
-  </div>;
+  return (
+    <Panel>
+      <Typography variant="alpha" tag="h2">{form.name}</Typography>
+      {form.description && <Typography marginTop={2} textColor="neutral600">{form.description}</Typography>}
+      <Flex direction="column" alignItems="stretch" gap={5} marginTop={5}>
+        {form.pages.map((page) => (
+          <Box key={page.id}>
+            <Typography variant="beta" tag="h3">{page.title}</Typography>
+            {page.description && <Typography marginTop={1} textColor="neutral600">{page.description}</Typography>}
+            <Flex direction="column" alignItems="stretch" gap={3} marginTop={4}>
+              {page.fields.map((field) => (
+                <Box key={field.id}>
+                  {field.type === 'heading' ? (
+                    <Typography variant="delta" tag="h4">{field.label}</Typography>
+                  ) : field.type === 'paragraph' ? (
+                    <Typography>{field.label}</Typography>
+                  ) : field.type === 'checkbox' ? (
+                    <Checkbox disabled checked={false}>{field.label}</Checkbox>
+                  ) : (
+                    <Field.Root required={field.required} hint={field.helpText}>
+                      <Field.Label>{field.label}</Field.Label>
+                      {field.type === 'textarea' ? (
+                        <Textarea disabled placeholder={field.placeholder} />
+                      ) : ['select', 'multiselect', 'radio'].includes(field.type) ? (
+                        <SingleSelect disabled placeholder="Select...">
+                          {field.options?.map((option) => (
+                            <SingleSelectOption key={option.value} value={option.value}>{option.label}</SingleSelectOption>
+                          ))}
+                        </SingleSelect>
+                      ) : (
+                        <TextInput disabled type={field.type === 'tel' ? 'tel' : field.type} placeholder={field.placeholder} />
+                      )}
+                      <Field.Hint />
+                    </Field.Root>
+                  )}
+                </Box>
+              ))}
+            </Flex>
+          </Box>
+        ))}
+      </Flex>
+    </Panel>
+  );
 }
 
 export function App() {
@@ -100,7 +171,7 @@ export function App() {
     } catch {
       setMessage('Unable to load forms.');
     }
-  }, [client, submissionStatus]);
+  }, [client]);
 
   const loadSubmissions = React.useCallback(async () => {
     try {
@@ -110,91 +181,215 @@ export function App() {
     } catch {
       setMessage('Unable to load submissions.');
     }
-  }, [client]);
+  }, [client, submissionStatus]);
 
-  React.useEffect(() => { loadForms(); }, [loadForms]);
-  React.useEffect(() => { if (view === 'submissions') loadSubmissions(); }, [view, loadSubmissions]);
+  React.useEffect(() => { void loadForms(); }, [loadForms]);
+  React.useEffect(() => { if (view === 'submissions') void loadSubmissions(); }, [view, loadSubmissions]);
 
   const currentPage = form.pages[pageIndex] || form.pages[0];
-  const selected = currentPage?.fields.find(f => f.id === selectedId) || null;
+  const selected = currentPage?.fields.find((field) => field.id === selectedId) || null;
 
-  const updateField = (patch: Partial<Field>) => setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? { ...p, fields: p.fields.map(f => f.id === selectedId ? { ...f, ...patch } : f) } : p) }));
+  const updateField = (patch: Partial<FieldDef>) => {
+    setForm((prev) => ({
+      ...prev,
+      pages: prev.pages.map((page, index) => index === pageIndex
+        ? { ...page, fields: page.fields.map((field) => field.id === selectedId ? { ...field, ...patch } : field) }
+        : page),
+    }));
+  };
+
   const addField = (type: string, title: string) => {
     const id = uid();
-    const field: Field = { id, type, name: `${type}_${id.slice(0,4)}`, label: title, required: false, conditions: null };
-    if (['select','radio','multiselect'].includes(type)) field.options = [{ label: 'Option 1', value: 'option-1' }];
-    setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? { ...p, fields: [...p.fields, field] } : p) }));
+    const field: FieldDef = {
+      id,
+      type,
+      name: `${type}_${id.slice(0, 4)}`,
+      label: title,
+      required: false,
+      conditions: null,
+    };
+    if (['select', 'radio', 'multiselect'].includes(type)) {
+      field.options = [{ label: 'Option 1', value: 'option-1' }];
+    }
+    setForm((prev) => ({
+      ...prev,
+      pages: prev.pages.map((page, index) => index === pageIndex ? { ...page, fields: [...page.fields, field] } : page),
+    }));
     setSelectedId(id);
   };
+
   const moveField = (index: number, direction: number) => {
-    const next = index + direction; if (next < 0 || next >= currentPage.fields.length) return;
-    setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => { if (i !== pageIndex) return p; const fields = [...p.fields]; [fields[index], fields[next]] = [fields[next], fields[index]]; return { ...p, fields }; }) }));
+    const next = index + direction;
+    if (next < 0 || next >= currentPage.fields.length) return;
+    setForm((prev) => ({
+      ...prev,
+      pages: prev.pages.map((page, pageIdx) => {
+        if (pageIdx !== pageIndex) return page;
+        const fields = [...page.fields];
+        [fields[index], fields[next]] = [fields[next], fields[index]];
+        return { ...page, fields };
+      }),
+    }));
   };
-  const removeField = (id: string) => { setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? { ...p, fields: p.fields.filter(f => f.id !== id) } : p) })); setSelectedId(null); };
-  const addPage = () => { const p = { id: uid(), title: `Page ${form.pages.length + 1}`, fields: [] }; setForm(prev => ({ ...prev, pages: [...prev.pages, p] })); setPageIndex(form.pages.length); setSelectedId(null); };
+
+  const removeField = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      pages: prev.pages.map((page, index) => index === pageIndex
+        ? { ...page, fields: page.fields.filter((field) => field.id !== id) }
+        : page),
+    }));
+    setSelectedId(null);
+  };
+
+  const addPage = () => {
+    const page = { id: uid(), title: `Page ${form.pages.length + 1}`, fields: [] };
+    setForm((prev) => ({ ...prev, pages: [...prev.pages, page] }));
+    setPageIndex(form.pages.length);
+    setSelectedId(null);
+  };
+
   const duplicatePage = () => {
     const source = currentPage;
-    const copy: Page = { ...source, id: uid(), title: `${source.title} Copy`, fields: source.fields.map(field => ({ ...field, id: uid(), name: `${field.name}_copy` })) };
-    setForm(prev => ({ ...prev, pages: [...prev.pages.slice(0, pageIndex + 1), copy, ...prev.pages.slice(pageIndex + 1)] }));
-    setPageIndex(pageIndex + 1); setSelectedId(null);
+    const copy: Page = {
+      ...source,
+      id: uid(),
+      title: `${source.title} Copy`,
+      fields: source.fields.map((field) => ({ ...field, id: uid(), name: `${field.name}_copy` })),
+    };
+    setForm((prev) => ({
+      ...prev,
+      pages: [...prev.pages.slice(0, pageIndex + 1), copy, ...prev.pages.slice(pageIndex + 1)],
+    }));
+    setPageIndex(pageIndex + 1);
+    setSelectedId(null);
   };
+
   const removePage = () => {
-    if (form.pages.length <= 1) { setMessage('A form must have at least one page.'); return; }
-    setForm(prev => ({ ...prev, pages: prev.pages.filter((_, i) => i !== pageIndex) }));
-    setPageIndex(Math.max(0, pageIndex - 1)); setSelectedId(null);
+    if (form.pages.length <= 1) {
+      setMessage('A form must have at least one page.');
+      return;
+    }
+    setForm((prev) => ({ ...prev, pages: prev.pages.filter((_, index) => index !== pageIndex) }));
+    setPageIndex(Math.max(0, pageIndex - 1));
+    setSelectedId(null);
   };
+
   const movePage = (direction: number) => {
-    const next = pageIndex + direction; if (next < 0 || next >= form.pages.length) return;
-    setForm(prev => { const pages = [...prev.pages]; [pages[pageIndex], pages[next]] = [pages[next], pages[pageIndex]]; return { ...prev, pages }; });
-    setPageIndex(next); setSelectedId(null);
+    const next = pageIndex + direction;
+    if (next < 0 || next >= form.pages.length) return;
+    setForm((prev) => {
+      const pages = [...prev.pages];
+      [pages[pageIndex], pages[next]] = [pages[next], pages[pageIndex]];
+      return { ...prev, pages };
+    });
+    setPageIndex(next);
+    setSelectedId(null);
   };
-  const allFields = form.pages.flatMap(p => p.fields).filter(f => !['heading','paragraph','hidden'].includes(f.type) && f.id !== selectedId);
+
+  const allFields = form.pages
+    .flatMap((page) => page.fields)
+    .filter((field) => !['heading', 'paragraph', 'hidden'].includes(field.type) && field.id !== selectedId);
+
   const setCondition = (patch: Partial<{ field: string; operator: string; value: unknown }>) => {
     if (!selected) return;
-    const existing = selected.conditions?.rules?.[0] || { field: allFields[0]?.name || '', operator: 'eq', value: '' };
+    const existing = selected.conditions?.rules?.[0] || {
+      field: allFields[0]?.name || '',
+      operator: 'eq',
+      value: '',
+    };
     updateField({ conditions: { logic: 'and', rules: [{ ...existing, ...patch }] } });
   };
 
   const save = async (publish = false) => {
-    setBusy(true); setMessage('');
+    setBusy(true);
+    setMessage('');
     try {
-      let saved: any;
-      if (form.documentId) saved = await client.put(`/clever-forms/forms/${form.documentId}`, { data: form });
-      else saved = await client.post('/clever-forms/forms', { data: form });
-      const doc = saved.data?.data || saved.data;
+      const saved = form.documentId
+        ? await client.put(`/clever-forms/forms/${form.documentId}`, { data: form })
+        : await client.post('/clever-forms/forms', { data: form });
+      const doc: any = saved.data?.data || saved.data;
       const documentId = doc.documentId || form.documentId;
-      setForm(prev => ({ ...prev, ...doc, documentId }));
-      if (publish && documentId) { await client.post(`/clever-forms/forms/${documentId}/publish`); setForm(prev => ({ ...prev, publishedAt: new Date().toISOString() })); }
+      setForm((prev) => ({ ...prev, ...doc, documentId }));
+      if (publish && documentId) {
+        await client.post(`/clever-forms/forms/${documentId}/publish`);
+        setForm((prev) => ({ ...prev, publishedAt: new Date().toISOString() }));
+      }
       setMessage(publish ? 'Form published.' : 'Draft saved.');
       await loadForms();
-    } catch (e: any) { setMessage(e?.message || 'Save failed.'); }
-    finally { setBusy(false); }
+    } catch (error: any) {
+      setMessage(error?.message || 'Save failed.');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const edit = async (doc: FormDoc) => { setForm(doc); setPageIndex(0); setSelectedId(null); setView('editor'); };
-  const create = () => { setForm(blankForm()); setPageIndex(0); setSelectedId(null); setView('editor'); };
+  const edit = (doc: FormDoc) => {
+    setForm(doc);
+    setPageIndex(0);
+    setSelectedId(null);
+    setView('editor');
+  };
+
+  const create = () => {
+    setForm(blankForm());
+    setPageIndex(0);
+    setSelectedId(null);
+    setView('editor');
+  };
+
   const duplicateForm = async (doc: FormDoc) => {
     if (!doc.documentId) return;
     setBusy(true);
-    try { await client.post(`/clever-forms/forms/${doc.documentId}/duplicate`); setMessage('Form duplicated.'); await loadForms(); }
-    catch (e: any) { setMessage(e?.message || 'Unable to duplicate form.'); } finally { setBusy(false); }
+    try {
+      await client.post(`/clever-forms/forms/${doc.documentId}/duplicate`);
+      setMessage('Form duplicated.');
+      await loadForms();
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to duplicate form.');
+    } finally {
+      setBusy(false);
+    }
   };
+
   const toggleArchive = async (doc: FormDoc) => {
     if (!doc.documentId) return;
     const lifecycle = doc.lifecycle === 'archived' ? 'active' : 'archived';
     setBusy(true);
-    try { await client.put(`/clever-forms/forms/${doc.documentId}/lifecycle`, { data: { lifecycle } }); setMessage(lifecycle === 'archived' ? 'Form archived.' : 'Form restored.'); await loadForms(); }
-    catch (e: any) { setMessage(e?.message || 'Unable to update form.'); } finally { setBusy(false); }
+    try {
+      await client.put(`/clever-forms/forms/${doc.documentId}/lifecycle`, { data: { lifecycle } });
+      setMessage(lifecycle === 'archived' ? 'Form archived.' : 'Form restored.');
+      await loadForms();
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to update form.');
+    } finally {
+      setBusy(false);
+    }
   };
+
   const downloadExport = () => {
     const blob = new Blob([exportForm(form)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a');
-    a.href = url; a.download = `${form.slug || 'clever-form'}.json`; a.click(); URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${form.slug || 'clever-form'}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
+
   const uploadImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]; if (!file) return;
-    try { const imported = importForm(await file.text()); setForm(imported); setPageIndex(0); setSelectedId(null); setView('editor'); setMessage('Form imported as a new draft.'); }
-    catch (e: any) { setMessage(e?.message || 'Unable to import form.'); }
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = importForm(await file.text());
+      setForm(imported);
+      setPageIndex(0);
+      setSelectedId(null);
+      setView('editor');
+      setMessage('Form imported as a new draft.');
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to import form.');
+    }
     event.target.value = '';
   };
 
@@ -203,80 +398,359 @@ export function App() {
     try {
       await client.put(`/clever-forms/submissions/${documentId}/status`, { data: { status } });
       setMessage('Submission status updated.');
-      if (selectedSubmission?.documentId === documentId) setSelectedSubmission((prev: any) => ({ ...prev, status }));
+      if (selectedSubmission?.documentId === documentId) {
+        setSelectedSubmission((prev: any) => ({ ...prev, status }));
+      }
       await loadSubmissions();
-    } catch (e: any) { setMessage(e?.message || 'Unable to update submission.'); }
-    finally { setBusy(false); }
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to update submission.');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  return <main style={css.shell}>
-    <div style={css.top}>
-      <div><h1 style={{ margin: 0 }}>CleverForms</h1><p style={{ margin: '4px 0 0', color: '#666687' }}>Forms and workflow foundation by CleverForge</p></div>
-      <div style={css.tabs}>
-        <button style={css.button} onClick={() => setView('forms')}>Forms</button>
-        <button style={css.button} onClick={() => setView('submissions')}>Submissions</button>
-        <button style={css.button} onClick={() => setView('settings')}>Settings</button>
-        {view === 'forms' && <button style={css.primary} onClick={create}>Create form</button>}
-      </div>
-    </div>
-    {message && <div style={{ ...css.card, marginBottom: 16, padding: 12 }}>{message}</div>}
+  return (
+    <Box padding={7} background="neutral100" minHeight="100vh">
+      <Box maxWidth="1500px" marginLeft="auto" marginRight="auto">
+        <Flex justifyContent="space-between" alignItems="center" gap={4} marginBottom={6}>
+          <Box>
+            <Typography variant="alpha" tag="h1">CleverForms</Typography>
+            <Typography textColor="neutral600" marginTop={1}>Forms and workflow foundation by CleverForge</Typography>
+          </Box>
+          <Flex gap={2} wrap="wrap">
+            <Button variant={view === 'forms' ? 'default' : 'secondary'} onClick={() => setView('forms')}>Forms</Button>
+            <Button variant={view === 'submissions' ? 'default' : 'secondary'} onClick={() => setView('submissions')}>Submissions</Button>
+            <Button variant={view === 'settings' ? 'default' : 'secondary'} onClick={() => setView('settings')}>Settings</Button>
+            {view === 'forms' && <Button onClick={create}>Create form</Button>}
+          </Flex>
+        </Flex>
 
-    {view === 'forms' && <div style={css.card}>
-      <h2 style={{ marginTop: 0 }}>Forms</h2>
-      {forms.length === 0 ? <p>No forms yet. Create your first form.</p> : forms.map((f: any) => <div key={f.documentId} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 280px', gap: 12, padding: '12px 0', borderBottom: '1px solid #eee' }}>
-        <div><strong>{f.name}</strong><div style={{ color: '#666687', fontSize: 13 }}>/{f.slug}</div></div>
-        <span>{f.pages?.length || 0} page(s)</span><span>{f.lifecycle === 'archived' ? 'archived' : f.publishedAt ? 'published' : 'draft'}</span><div style={{display:'flex',gap:6}}><button style={css.button} onClick={() => edit(f)}>Edit</button><button style={css.button} disabled={busy} onClick={() => duplicateForm(f)}>Duplicate</button><button style={css.button} disabled={busy} onClick={() => toggleArchive(f)}>{f.lifecycle === 'archived' ? 'Restore' : 'Archive'}</button></div>
-      </div>)}
-    </div>}
+        {message && (
+          <Box background="primary100" borderColor="primary200" borderWidth="1px" borderStyle="solid" hasRadius padding={3} marginBottom={4}>
+            <Typography>{message}</Typography>
+          </Box>
+        )}
 
-    {view === 'editor' && <>
-      <div style={{ ...css.card, marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr auto auto auto auto auto', gap: 12, alignItems: 'end' }}>
-        <label style={css.label}>Form name<input style={css.input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value, slug: form.documentId ? form.slug : slugify(e.target.value) })} /></label>
-        <label style={css.label}>Slug<input style={css.input} value={form.slug} onChange={e => setForm({ ...form, slug: slugify(e.target.value) })} /></label>
-        <button style={css.button} onClick={() => setPreview(!preview)}>{preview ? 'Builder' : 'Preview'}</button>
-        <button style={css.button} onClick={downloadExport}>Export</button>
-        <label style={{...css.button,display:'inline-block'}}>Import<input type="file" accept="application/json,.json" onChange={uploadImport} style={{display:'none'}} /></label>
-        <button style={css.button} disabled={busy} onClick={() => save(false)}>Save draft</button>
-        <button style={css.primary} disabled={busy} onClick={() => save(true)}>Publish</button>
-      </div>
-      {preview ? <Preview form={form} /> : <div style={css.grid}>
-        <aside style={css.card}><h3 style={{ marginTop: 0 }}>Fields</h3>{fieldTypes.map(([type,title]) => <button key={type} style={css.palette} onClick={() => addField(type,title)}>+ {title}</button>)}</aside>
-        <section style={css.card}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{form.pages.map((p,i) => <button key={p.id} style={i === pageIndex ? css.primary : css.button} onClick={() => { setPageIndex(i); setSelectedId(null); }}>{p.title}</button>)}<button style={css.button} onClick={addPage}>+ Page</button></div>
-          <div style={{display:'flex',gap:6,marginBottom:12}}><button style={css.button} onClick={() => movePage(-1)}>← Page</button><button style={css.button} onClick={() => movePage(1)}>Page →</button><button style={css.button} onClick={duplicatePage}>Duplicate page</button><button style={css.button} onClick={removePage}>Remove page</button></div>
-          <label style={css.label}>Page title<input style={css.input} value={currentPage.title} onChange={e => setForm(prev => ({ ...prev, pages: prev.pages.map((p,i) => i === pageIndex ? { ...p, title: e.target.value } : p) }))} /></label>
-          <label style={css.label}>Page description<textarea style={{...css.input,minHeight:70}} value={currentPage.description || ''} onChange={e => setForm(prev => ({ ...prev, pages: prev.pages.map((p,i) => i === pageIndex ? { ...p, description: e.target.value } : p) }))} /></label>
-          {currentPage.fields.length === 0 && <div style={{ padding: 30, border: '2px dashed #dcdce4', borderRadius: 8, textAlign: 'center', color: '#666687' }}>Choose a field from the left to start building.</div>}
-          {currentPage.fields.map((field,index) => <div key={field.id} style={{ ...css.fieldCard, outline: selectedId === field.id ? '2px solid #4945ff' : undefined }} onClick={() => setSelectedId(field.id)}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><div><strong>{field.label}</strong><div style={{ fontSize: 12, color: '#666687' }}>{field.type} · {field.name}</div></div><div><button style={css.button} onClick={e => {e.stopPropagation(); moveField(index,-1)}}>↑</button> <button style={css.button} onClick={e => {e.stopPropagation(); moveField(index,1)}}>↓</button></div></div>
-          </div>)}
-        </section>
-        <aside style={css.card}><h3 style={{ marginTop: 0 }}>Properties</h3>{!selected ? <p>Select a field to edit it.</p> : <>
-          <label style={css.label}>Label<input style={css.input} value={selected.label} onChange={e => updateField({ label: e.target.value })} /></label>
-          <label style={css.label}>Field name<input style={css.input} value={selected.name} onChange={e => updateField({ name: slugify(e.target.value).replace(/-/g,'_') })} /></label>
-          {!['heading','paragraph'].includes(selected.type) && <><label style={css.label}>Placeholder<input style={css.input} value={selected.placeholder || ''} onChange={e => updateField({ placeholder: e.target.value })} /></label><label style={css.label}>Help text<input style={css.input} value={selected.helpText || ''} onChange={e => updateField({ helpText: e.target.value })} /></label><label style={{ display:'flex',gap:8,marginBottom:12 }}><input type="checkbox" checked={!!selected.required} onChange={e => updateField({ required: e.target.checked })} /> Required</label></>}
-          {selected.options && <label style={css.label}>Options (one per line)<textarea style={{ ...css.input, minHeight: 100 }} value={selected.options.map(o => o.label).join('\n')} onChange={e => updateField({ options: e.target.value.split('\n').filter(Boolean).map(v => ({ label:v, value:slugify(v) })) })} /></label>}
-          <details style={{ marginBottom: 16 }} open={!!selected.conditions}><summary>Conditional logic</summary>
-            <label style={{display:'flex',gap:8,margin:'12px 0'}}><input type="checkbox" checked={!!selected.conditions} onChange={e => updateField({ conditions: e.target.checked ? { logic:'and', rules:[{ field: allFields[0]?.name || '', operator:'eq', value:'' }] } : null })} /> Show this field conditionally</label>
-            {selected.conditions && <><label style={css.label}>When field<select style={css.input} value={String(selected.conditions.rules[0]?.field || '')} onChange={e => setCondition({field:e.target.value})}><option value="">Select field…</option>{allFields.map(f => <option key={f.id} value={f.name}>{f.label} ({f.name})</option>)}</select></label>
-            <label style={css.label}>Operator<select style={css.input} value={String(selected.conditions.rules[0]?.operator || 'eq')} onChange={e => setCondition({operator:e.target.value})}><option value="eq">Equals</option><option value="neq">Does not equal</option><option value="contains">Contains</option><option value="isEmpty">Is empty</option><option value="isNotEmpty">Is not empty</option></select></label>
-            {!['isEmpty','isNotEmpty'].includes(String(selected.conditions.rules[0]?.operator)) && <label style={css.label}>Value<input style={css.input} value={String(selected.conditions.rules[0]?.value ?? '')} onChange={e => setCondition({value:e.target.value})} /></label>}</>}
-          </details>
-          <button style={{ ...css.button, width:'100%' }} onClick={() => removeField(selected.id)}>Remove field</button>
-        </>}</aside>
-      </div>}
-    </>}
+        {view === 'forms' && (
+          <Panel>
+            <Typography variant="beta" tag="h2">Forms</Typography>
+            <Flex direction="column" alignItems="stretch" gap={3} marginTop={4}>
+              {forms.length === 0 ? (
+                <Typography textColor="neutral600">No forms yet. Create your first form.</Typography>
+              ) : forms.map((item) => (
+                <Box key={item.documentId} padding={4} borderColor="neutral200" borderWidth="1px" borderStyle="solid" hasRadius>
+                  <Flex justifyContent="space-between" alignItems="center" gap={4}>
+                    <Box>
+                      <Typography fontWeight="bold">{item.name}</Typography>
+                      <Typography variant="pi" textColor="neutral600">/{item.slug}</Typography>
+                    </Box>
+                    <Flex gap={4} alignItems="center">
+                      <Typography variant="pi">{item.pages?.length || 0} page(s)</Typography>
+                      <Typography variant="pi">{item.lifecycle === 'archived' ? 'Archived' : item.publishedAt ? 'Published' : 'Draft'}</Typography>
+                      <Flex gap={2}>
+                        <Button variant="secondary" size="S" onClick={() => edit(item)}>Edit</Button>
+                        <Button variant="secondary" size="S" disabled={busy} onClick={() => void duplicateForm(item)}>Duplicate</Button>
+                        <Button variant="secondary" size="S" disabled={busy} onClick={() => void toggleArchive(item)}>
+                          {item.lifecycle === 'archived' ? 'Restore' : 'Archive'}
+                        </Button>
+                      </Flex>
+                    </Flex>
+                  </Flex>
+                </Box>
+              ))}
+            </Flex>
+          </Panel>
+        )}
 
-    {view === 'submissions' && <div style={{display:'grid',gridTemplateColumns:selectedSubmission ? 'minmax(500px,1fr) 420px' : '1fr',gap:16}}>
-      <div style={css.card}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'end',gap:12,marginBottom:16}}><div><h2 style={{ margin:0 }}>Submissions</h2><p style={{margin:'4px 0 0',color:'#666687'}}>Review submitted form data and workflow status.</p></div><label style={css.label}>Status<select style={{...css.input,minWidth:170}} value={submissionStatus} onChange={e => setSubmissionStatus(e.target.value)}><option value="">All statuses</option><option value="received">Received</option><option value="processing">Processing</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></label></div>
-        {submissions.length === 0 ? <p>No submissions found.</p> : submissions.map((s:any) => <button key={s.documentId} style={{...css.fieldCard,width:'100%',textAlign:'left'}} onClick={() => setSelectedSubmission(s)}><div style={{display:'flex',justifyContent:'space-between',gap:12}}><div><strong>{s.form?.name || 'Form submission'}</strong><div style={{ fontSize:13,color:'#666687' }}>{new Date(s.submittedAt || s.createdAt).toLocaleString()}</div></div><span>{s.status || 'received'}</span></div></button>)}
-      </div>
-      {selectedSubmission && <aside style={css.card}><div style={{display:'flex',justifyContent:'space-between',gap:8}}><h3 style={{marginTop:0}}>Submission</h3><button style={css.button} onClick={() => setSelectedSubmission(null)}>Close</button></div><p><strong>{selectedSubmission.form?.name || 'Form'}</strong><br/><small>{selectedSubmission.documentId}</small></p><label style={css.label}>Workflow status<select style={css.input} value={selectedSubmission.status || 'received'} disabled={busy} onChange={e => updateSubmissionStatus(selectedSubmission.documentId,e.target.value)}><option value="received">Received</option><option value="processing">Processing</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></label><h4>Submitted data</h4><div>{Object.entries(selectedSubmission.data || {}).map(([key,value]) => <div key={key} style={{padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{fontSize:12}}>{key}</strong><div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}</div></div>)}</div></aside>}
-    </div>}
+        {view === 'editor' && (
+          <Flex direction="column" alignItems="stretch" gap={4}>
+            <Panel>
+              <Flex gap={4} alignItems="end" wrap="wrap">
+                <Box flex="1 1 320px">
+                  <TextField
+                    label="Form name"
+                    value={form.name}
+                    onChange={(value) => setForm({ ...form, name: value, slug: form.documentId ? form.slug : slugify(value) })}
+                  />
+                </Box>
+                <Box flex="1 1 280px">
+                  <TextField label="Slug" value={form.slug} onChange={(value) => setForm({ ...form, slug: slugify(value) })} />
+                </Box>
+                <Button variant="secondary" onClick={() => setPreview((value) => !value)}>{preview ? 'Builder' : 'Preview'}</Button>
+                <Button variant="secondary" onClick={downloadExport}>Export</Button>
+                <Box>
+                  <Button variant="secondary" onClick={() => document.getElementById('cleverforms-import')?.click()}>Import</Button>
+                  <input id="cleverforms-import" type="file" accept="application/json,.json" onChange={uploadImport} style={{ display: 'none' }} />
+                </Box>
+                <Button variant="secondary" loading={busy} onClick={() => void save(false)}>Save draft</Button>
+                <Button loading={busy} onClick={() => void save(true)}>Publish</Button>
+              </Flex>
+            </Panel>
 
-    {view === 'settings' && <div style={css.card}><h2 style={{ marginTop:0 }}>Settings</h2><p>CleverForms Core settings are provider-neutral. Extension APIs are reserved for compatible integrations and future Strapi capabilities.</p><label style={css.label}>Default confirmation message<input style={css.input} value={form.confirmation?.message || ''} onChange={e => setForm({ ...form, confirmation:{...form.confirmation,message:e.target.value} })} /></label></div>}
-  </main>;
+            {preview ? <Preview form={form} /> : (
+              <Flex gap={4} alignItems="flex-start">
+                <Box width="240px" flexShrink={0}>
+                  <Panel>
+                    <Typography variant="delta" tag="h3">Fields</Typography>
+                    <Flex direction="column" alignItems="stretch" gap={2} marginTop={3}>
+                      {fieldTypes.map(([type, title]) => (
+                        <Button key={type} variant="secondary" fullWidth onClick={() => addField(type, title)}>+ {title}</Button>
+                      ))}
+                    </Flex>
+                  </Panel>
+                </Box>
+
+                <Box flex="1 1 auto" minWidth="0">
+                  <Panel>
+                    <Flex gap={2} wrap="wrap" marginBottom={4}>
+                      {form.pages.map((page, index) => (
+                        <Button
+                          key={page.id}
+                          variant={index === pageIndex ? 'default' : 'secondary'}
+                          size="S"
+                          onClick={() => { setPageIndex(index); setSelectedId(null); }}
+                        >
+                          {page.title}
+                        </Button>
+                      ))}
+                      <Button variant="secondary" size="S" onClick={addPage}>+ Page</Button>
+                    </Flex>
+
+                    <Flex gap={2} wrap="wrap" marginBottom={4}>
+                      <Button variant="secondary" size="S" onClick={() => movePage(-1)}>Move left</Button>
+                      <Button variant="secondary" size="S" onClick={() => movePage(1)}>Move right</Button>
+                      <Button variant="secondary" size="S" onClick={duplicatePage}>Duplicate page</Button>
+                      <Button variant="secondary" size="S" onClick={removePage}>Remove page</Button>
+                    </Flex>
+
+                    <Flex direction="column" alignItems="stretch" gap={4}>
+                      <TextField
+                        label="Page title"
+                        value={currentPage.title}
+                        onChange={(value) => setForm((prev) => ({
+                          ...prev,
+                          pages: prev.pages.map((page, index) => index === pageIndex ? { ...page, title: value } : page),
+                        }))}
+                      />
+                      <TextAreaField
+                        label="Page description"
+                        value={currentPage.description || ''}
+                        onChange={(value) => setForm((prev) => ({
+                          ...prev,
+                          pages: prev.pages.map((page, index) => index === pageIndex ? { ...page, description: value } : page),
+                        }))}
+                      />
+
+                      {currentPage.fields.length === 0 && (
+                        <Box padding={6} background="neutral100" hasRadius>
+                          <Typography textColor="neutral600" textAlign="center">Choose a field from the left to start building.</Typography>
+                        </Box>
+                      )}
+
+                      {currentPage.fields.map((field, index) => (
+                        <Box
+                          key={field.id}
+                          padding={4}
+                          borderColor={selectedId === field.id ? 'primary600' : 'neutral200'}
+                          borderWidth="1px"
+                          borderStyle="solid"
+                          hasRadius
+                          background="neutral0"
+                          onClick={() => setSelectedId(field.id)}
+                        >
+                          <Flex justifyContent="space-between" gap={3} alignItems="center">
+                            <Box>
+                              <Typography fontWeight="bold">{field.label}</Typography>
+                              <Typography variant="pi" textColor="neutral600">{field.type} · {field.name}</Typography>
+                            </Box>
+                            <Flex gap={2}>
+                              <Button variant="secondary" size="S" onClick={(event) => { event.stopPropagation(); moveField(index, -1); }}>Up</Button>
+                              <Button variant="secondary" size="S" onClick={(event) => { event.stopPropagation(); moveField(index, 1); }}>Down</Button>
+                            </Flex>
+                          </Flex>
+                        </Box>
+                      ))}
+                    </Flex>
+                  </Panel>
+                </Box>
+
+                <Box width="320px" flexShrink={0}>
+                  <Panel>
+                    <Typography variant="delta" tag="h3">Properties</Typography>
+                    {!selected ? (
+                      <Typography marginTop={3} textColor="neutral600">Select a field to edit it.</Typography>
+                    ) : (
+                      <Flex direction="column" alignItems="stretch" gap={4} marginTop={4}>
+                        <TextField label="Label" value={selected.label} onChange={(value) => updateField({ label: value })} />
+                        <TextField label="Field name" value={selected.name} onChange={(value) => updateField({ name: slugify(value).replace(/-/g, '_') })} />
+
+                        {!['heading', 'paragraph'].includes(selected.type) && (
+                          <>
+                            <TextField label="Placeholder" value={selected.placeholder || ''} onChange={(value) => updateField({ placeholder: value })} />
+                            <TextField label="Help text" value={selected.helpText || ''} onChange={(value) => updateField({ helpText: value })} />
+                            <Checkbox checked={!!selected.required} onCheckedChange={(checked) => updateField({ required: checked === true })}>Required</Checkbox>
+                          </>
+                        )}
+
+                        {selected.options && (
+                          <TextAreaField
+                            label="Options"
+                            hint="One option per line"
+                            value={selected.options.map((option) => option.label).join('\n')}
+                            onChange={(value) => updateField({
+                              options: value.split('\n').filter(Boolean).map((entry) => ({ label: entry, value: slugify(entry) })),
+                            })}
+                          />
+                        )}
+
+                        <Box paddingTop={3} borderColor="neutral200" borderWidth="1px 0 0 0" borderStyle="solid">
+                          <Typography fontWeight="bold">Conditional logic</Typography>
+                          <Box marginTop={3}>
+                            <Checkbox
+                              checked={!!selected.conditions}
+                              onCheckedChange={(checked) => updateField({
+                                conditions: checked === true
+                                  ? { logic: 'and', rules: [{ field: allFields[0]?.name || '', operator: 'eq', value: '' }] }
+                                  : null,
+                              })}
+                            >
+                              Show this field conditionally
+                            </Checkbox>
+                          </Box>
+
+                          {selected.conditions && (
+                            <Flex direction="column" alignItems="stretch" gap={3} marginTop={4}>
+                              <Field.Root>
+                                <Field.Label>When field</Field.Label>
+                                <SingleSelect value={String(selected.conditions.rules[0]?.field || '')} onChange={(value) => setCondition({ field: String(value) })} placeholder="Select field...">
+                                  {allFields.map((field) => <SingleSelectOption key={field.id} value={field.name}>{field.label} ({field.name})</SingleSelectOption>)}
+                                </SingleSelect>
+                              </Field.Root>
+
+                              <Field.Root>
+                                <Field.Label>Operator</Field.Label>
+                                <SingleSelect value={String(selected.conditions.rules[0]?.operator || 'eq')} onChange={(value) => setCondition({ operator: String(value) })}>
+                                  <SingleSelectOption value="eq">Equals</SingleSelectOption>
+                                  <SingleSelectOption value="neq">Does not equal</SingleSelectOption>
+                                  <SingleSelectOption value="contains">Contains</SingleSelectOption>
+                                  <SingleSelectOption value="isEmpty">Is empty</SingleSelectOption>
+                                  <SingleSelectOption value="isNotEmpty">Is not empty</SingleSelectOption>
+                                </SingleSelect>
+                              </Field.Root>
+
+                              {!['isEmpty', 'isNotEmpty'].includes(String(selected.conditions.rules[0]?.operator)) && (
+                                <TextField
+                                  label="Value"
+                                  value={String(selected.conditions.rules[0]?.value ?? '')}
+                                  onChange={(value) => setCondition({ value })}
+                                />
+                              )}
+                            </Flex>
+                          )}
+                        </Box>
+
+                        <Button variant="secondary" fullWidth onClick={() => removeField(selected.id)}>Remove field</Button>
+                      </Flex>
+                    )}
+                  </Panel>
+                </Box>
+              </Flex>
+            )}
+          </Flex>
+        )}
+
+        {view === 'submissions' && (
+          <Flex gap={4} alignItems="flex-start">
+            <Box flex="1 1 auto">
+              <Panel>
+                <Flex justifyContent="space-between" alignItems="flex-end" gap={4}>
+                  <Box>
+                    <Typography variant="beta" tag="h2">Submissions</Typography>
+                    <Typography textColor="neutral600" marginTop={1}>Review submitted form data and workflow status.</Typography>
+                  </Box>
+                  <Field.Root>
+                    <Field.Label>Status</Field.Label>
+                    <SingleSelect value={submissionStatus} onChange={(value) => setSubmissionStatus(String(value))} onClear={() => setSubmissionStatus('')} placeholder="All statuses">
+                      <SingleSelectOption value="received">Received</SingleSelectOption>
+                      <SingleSelectOption value="processing">Processing</SingleSelectOption>
+                      <SingleSelectOption value="completed">Completed</SingleSelectOption>
+                      <SingleSelectOption value="rejected">Rejected</SingleSelectOption>
+                    </SingleSelect>
+                  </Field.Root>
+                </Flex>
+
+                <Flex direction="column" alignItems="stretch" gap={3} marginTop={5}>
+                  {submissions.length === 0 ? (
+                    <Typography textColor="neutral600">No submissions found.</Typography>
+                  ) : submissions.map((submission: any) => (
+                    <Button key={submission.documentId} variant="secondary" fullWidth onClick={() => setSelectedSubmission(submission)}>
+                      {submission.form?.name || 'Form submission'} · {submission.status || 'received'} · {new Date(submission.submittedAt || submission.createdAt).toLocaleString()}
+                    </Button>
+                  ))}
+                </Flex>
+              </Panel>
+            </Box>
+
+            {selectedSubmission && (
+              <Box width="420px" flexShrink={0}>
+                <Panel>
+                  <Flex justifyContent="space-between" alignItems="center" gap={3}>
+                    <Typography variant="delta" tag="h3">Submission</Typography>
+                    <Button variant="secondary" size="S" onClick={() => setSelectedSubmission(null)}>Close</Button>
+                  </Flex>
+
+                  <Typography fontWeight="bold" marginTop={4}>{selectedSubmission.form?.name || 'Form'}</Typography>
+                  <Typography variant="pi" textColor="neutral600">{selectedSubmission.documentId}</Typography>
+
+                  <Box marginTop={4}>
+                    <Field.Root>
+                      <Field.Label>Workflow status</Field.Label>
+                      <SingleSelect
+                        value={selectedSubmission.status || 'received'}
+                        disabled={busy}
+                        onChange={(value) => void updateSubmissionStatus(selectedSubmission.documentId, String(value))}
+                      >
+                        <SingleSelectOption value="received">Received</SingleSelectOption>
+                        <SingleSelectOption value="processing">Processing</SingleSelectOption>
+                        <SingleSelectOption value="completed">Completed</SingleSelectOption>
+                        <SingleSelectOption value="rejected">Rejected</SingleSelectOption>
+                      </SingleSelect>
+                    </Field.Root>
+                  </Box>
+
+                  <Typography fontWeight="bold" marginTop={5}>Submitted data</Typography>
+                  <Flex direction="column" alignItems="stretch" gap={2} marginTop={3}>
+                    {Object.entries(selectedSubmission.data || {}).map(([key, value]) => (
+                      <Box key={key} paddingBottom={2} borderColor="neutral200" borderWidth="0 0 1px 0" borderStyle="solid">
+                        <Typography variant="pi" fontWeight="bold">{key}</Typography>
+                        <Typography>{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}</Typography>
+                      </Box>
+                    ))}
+                  </Flex>
+                </Panel>
+              </Box>
+            )}
+          </Flex>
+        )}
+
+        {view === 'settings' && (
+          <Panel>
+            <Typography variant="beta" tag="h2">Settings</Typography>
+            <Typography textColor="neutral600" marginTop={2}>
+              CleverForms Core settings are provider-neutral. Extension APIs are reserved for compatible integrations and future Strapi capabilities.
+            </Typography>
+            <Box marginTop={5} maxWidth="640px">
+              <TextField
+                label="Default confirmation message"
+                value={form.confirmation?.message || ''}
+                onChange={(value) => setForm({ ...form, confirmation: { ...form.confirmation, message: value } })}
+              />
+            </Box>
+          </Panel>
+        )}
+      </Box>
+    </Box>
+  );
 }
 
 export default App;
