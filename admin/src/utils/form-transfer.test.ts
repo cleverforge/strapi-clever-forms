@@ -7,7 +7,8 @@ describe('form transfer', () => {
       documentId: 'secret-id',
       name: 'Contact',
       slug: 'contact',
-      status: 'published',
+      lifecycle: 'active',
+      publishedAt: '2026-01-01T00:00:00.000Z',
       pages: [{ id: 'p1', title: 'Page 1', fields: [] }],
       internalOnly: 'nope',
     });
@@ -15,19 +16,21 @@ describe('form transfer', () => {
     expect(parsed.schemaVersion).toBe(1);
     expect(parsed.form.name).toBe('Contact');
     expect(parsed.form.documentId).toBeUndefined();
+    expect(parsed.form.publishedAt).toBeUndefined();
     expect(parsed.form.internalOnly).toBeUndefined();
   });
 
-  it('imports as a new draft copy', () => {
+  it('imports as a new active unpublished copy', () => {
     const raw = JSON.stringify({
       schemaVersion: 1,
       product: 'CleverForms',
       exportedAt: new Date().toISOString(),
-      form: { name: 'Contact', slug: 'contact', pages: [] },
+      form: { name: 'Contact', slug: 'contact', lifecycle: 'archived', pages: [] },
     });
     const form = importForm(raw);
     expect(form.documentId).toBeUndefined();
-    expect(form.status).toBe('draft');
+    expect(form.publishedAt).toBeNull();
+    expect(form.lifecycle).toBe('active');
     expect(form.name).toBe('Contact Copy');
   });
 
