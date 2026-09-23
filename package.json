@@ -1,6 +1,6 @@
 {
   "name": "@cleverforge/strapi-clever-forms",
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0",
   "description": "Free Strapi 5 form builder with multi-page forms, conditional logic, secure submissions, and a React renderer.",
   "keywords": [
     "strapi",
