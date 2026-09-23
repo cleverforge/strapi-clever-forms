@@ -78,7 +78,7 @@ function Preview({ form }: { form: FormDoc }) {
   </div>;
 }
 
-export default function App() {
+export function App() {
   const client = useFetchClient();
   const [view, setView] = React.useState<'forms'|'editor'|'submissions'|'settings'>('forms');
   const [forms, setForms] = React.useState<FormDoc[]>([]);
@@ -202,3 +202,5 @@ export default function App() {
     {view === 'settings' && <div style={css.card}><h2 style={{ marginTop:0 }}>Settings</h2><p>Core settings will remain provider-neutral. Commercial modules such as Clever Connect, Clever AI, Communications, Analytics, and Payments will register their own settings here without placing proprietary code in Core.</p><label style={css.label}>Default confirmation message<input style={css.input} value={form.confirmation?.message || ''} onChange={e => setForm({ ...form, confirmation:{...form.confirmation,message:e.target.value} })} /></label></div>}
   </main>;
 }
+
+export default App;
