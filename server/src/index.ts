@@ -1,5 +1,6 @@
 import contentTypes from './content-types';
 import controllers from './controllers';
+import middlewares from './middlewares';
 import routes from './routes';
 import services from './services';
 
@@ -25,6 +26,7 @@ export default {
   config: { default: {}, validator() {} },
   contentTypes,
   controllers,
+  middlewares,
   routes,
   services,
 };
