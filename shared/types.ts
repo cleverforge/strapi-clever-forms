@@ -59,7 +59,8 @@ export type CleverFormSchema = {
   name: string;
   slug: string;
   description?: string;
-  status: 'draft' | 'published' | 'archived';
+  lifecycle?: 'active' | 'archived';
+  publishedAt?: string | null;
   version: number;
   requiresAuthentication?: boolean;
   pages: CleverPage[];
