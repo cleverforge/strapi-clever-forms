@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useFetchClient } from '@strapi/strapi/admin';
+import { exportForm, importForm } from '../utils/form-transfer';
 
 type Field = {
   id: string;
@@ -10,7 +11,7 @@ type Field = {
   helpText?: string;
   required?: boolean;
   options?: { label: string; value: string }[];
-  conditions?: any[];
+  conditions?: { logic: 'and' | 'or'; rules: Array<{ field: string; operator: string; value?: unknown }> } | null;
 };
 
 type Page = { id: string; title: string; description?: string; fields: Field[] };
@@ -117,7 +118,7 @@ export function App() {
   const updateField = (patch: Partial<Field>) => setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? { ...p, fields: p.fields.map(f => f.id === selectedId ? { ...f, ...patch } : f) } : p) }));
   const addField = (type: string, title: string) => {
     const id = uid();
-    const field: Field = { id, type, name: `${type}_${id.slice(0,4)}`, label: title, required: false, conditions: [] };
+    const field: Field = { id, type, name: `${type}_${id.slice(0,4)}`, label: title, required: false, conditions: null };
     if (['select','radio','multiselect'].includes(type)) field.options = [{ label: 'Option 1', value: 'option-1' }];
     setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? { ...p, fields: [...p.fields, field] } : p) }));
     setSelectedId(id);
@@ -128,6 +129,28 @@ export function App() {
   };
   const removeField = (id: string) => { setForm(prev => ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? { ...p, fields: p.fields.filter(f => f.id !== id) } : p) })); setSelectedId(null); };
   const addPage = () => { const p = { id: uid(), title: `Page ${form.pages.length + 1}`, fields: [] }; setForm(prev => ({ ...prev, pages: [...prev.pages, p] })); setPageIndex(form.pages.length); setSelectedId(null); };
+  const duplicatePage = () => {
+    const source = currentPage;
+    const copy: Page = { ...source, id: uid(), title: `${source.title} Copy`, fields: source.fields.map(field => ({ ...field, id: uid(), name: `${field.name}_copy` })) };
+    setForm(prev => ({ ...prev, pages: [...prev.pages.slice(0, pageIndex + 1), copy, ...prev.pages.slice(pageIndex + 1)] }));
+    setPageIndex(pageIndex + 1); setSelectedId(null);
+  };
+  const removePage = () => {
+    if (form.pages.length <= 1) { setMessage('A form must have at least one page.'); return; }
+    setForm(prev => ({ ...prev, pages: prev.pages.filter((_, i) => i !== pageIndex) }));
+    setPageIndex(Math.max(0, pageIndex - 1)); setSelectedId(null);
+  };
+  const movePage = (direction: number) => {
+    const next = pageIndex + direction; if (next < 0 || next >= form.pages.length) return;
+    setForm(prev => { const pages = [...prev.pages]; [pages[pageIndex], pages[next]] = [pages[next], pages[pageIndex]]; return { ...prev, pages }; });
+    setPageIndex(next); setSelectedId(null);
+  };
+  const allFields = form.pages.flatMap(p => p.fields).filter(f => !['heading','paragraph','hidden'].includes(f.type) && f.id !== selectedId);
+  const setCondition = (patch: Partial<{ field: string; operator: string; value: unknown }>) => {
+    if (!selected) return;
+    const existing = selected.conditions?.rules?.[0] || { field: allFields[0]?.name || '', operator: 'eq', value: '' };
+    updateField({ conditions: { logic: 'and', rules: [{ ...existing, ...patch }] } });
+  };
 
   const save = async (publish = false) => {
     setBusy(true); setMessage('');
@@ -147,6 +170,30 @@ export function App() {
 
   const edit = async (doc: FormDoc) => { setForm(doc); setPageIndex(0); setSelectedId(null); setView('editor'); };
   const create = () => { setForm(blankForm()); setPageIndex(0); setSelectedId(null); setView('editor'); };
+  const duplicateForm = async (doc: FormDoc) => {
+    if (!doc.documentId) return;
+    setBusy(true);
+    try { await client.post(`/clever-forms/forms/${doc.documentId}/duplicate`); setMessage('Form duplicated.'); await loadForms(); }
+    catch (e: any) { setMessage(e?.message || 'Unable to duplicate form.'); } finally { setBusy(false); }
+  };
+  const toggleArchive = async (doc: FormDoc) => {
+    if (!doc.documentId) return;
+    const lifecycle = doc.lifecycle === 'archived' ? 'active' : 'archived';
+    setBusy(true);
+    try { await client.put(`/clever-forms/forms/${doc.documentId}/lifecycle`, { data: { lifecycle } }); setMessage(lifecycle === 'archived' ? 'Form archived.' : 'Form restored.'); await loadForms(); }
+    catch (e: any) { setMessage(e?.message || 'Unable to update form.'); } finally { setBusy(false); }
+  };
+  const downloadExport = () => {
+    const blob = new Blob([exportForm(form)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = `${form.slug || 'clever-form'}.json`; a.click(); URL.revokeObjectURL(url);
+  };
+  const uploadImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; if (!file) return;
+    try { const imported = importForm(await file.text()); setForm(imported); setPageIndex(0); setSelectedId(null); setView('editor'); setMessage('Form imported as a new draft.'); }
+    catch (e: any) { setMessage(e?.message || 'Unable to import form.'); }
+    event.target.value = '';
+  };
 
   return <main style={css.shell}>
     <div style={css.top}>
@@ -162,17 +209,19 @@ export function App() {
 
     {view === 'forms' && <div style={css.card}>
       <h2 style={{ marginTop: 0 }}>Forms</h2>
-      {forms.length === 0 ? <p>No forms yet. Create your first form.</p> : forms.map((f: any) => <div key={f.documentId} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 140px 100px', gap: 12, padding: '12px 0', borderBottom: '1px solid #eee' }}>
+      {forms.length === 0 ? <p>No forms yet. Create your first form.</p> : forms.map((f: any) => <div key={f.documentId} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 280px', gap: 12, padding: '12px 0', borderBottom: '1px solid #eee' }}>
         <div><strong>{f.name}</strong><div style={{ color: '#666687', fontSize: 13 }}>/{f.slug}</div></div>
-        <span>{f.pages?.length || 0} page(s)</span><span>{f.publishedAt ? 'published' : 'draft'}</span><button style={css.button} onClick={() => edit(f)}>Edit</button>
+        <span>{f.pages?.length || 0} page(s)</span><span>{f.lifecycle === 'archived' ? 'archived' : f.publishedAt ? 'published' : 'draft'}</span><div style={{display:'flex',gap:6}}><button style={css.button} onClick={() => edit(f)}>Edit</button><button style={css.button} disabled={busy} onClick={() => duplicateForm(f)}>Duplicate</button><button style={css.button} disabled={busy} onClick={() => toggleArchive(f)}>{f.lifecycle === 'archived' ? 'Restore' : 'Archive'}</button></div>
       </div>)}
     </div>}
 
     {view === 'editor' && <>
-      <div style={{ ...css.card, marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr auto auto auto', gap: 12, alignItems: 'end' }}>
+      <div style={{ ...css.card, marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr auto auto auto auto auto', gap: 12, alignItems: 'end' }}>
         <label style={css.label}>Form name<input style={css.input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value, slug: form.documentId ? form.slug : slugify(e.target.value) })} /></label>
         <label style={css.label}>Slug<input style={css.input} value={form.slug} onChange={e => setForm({ ...form, slug: slugify(e.target.value) })} /></label>
         <button style={css.button} onClick={() => setPreview(!preview)}>{preview ? 'Builder' : 'Preview'}</button>
+        <button style={css.button} onClick={downloadExport}>Export</button>
+        <label style={{...css.button,display:'inline-block'}}>Import<input type="file" accept="application/json,.json" onChange={uploadImport} style={{display:'none'}} /></label>
         <button style={css.button} disabled={busy} onClick={() => save(false)}>Save draft</button>
         <button style={css.primary} disabled={busy} onClick={() => save(true)}>Publish</button>
       </div>
@@ -180,7 +229,9 @@ export function App() {
         <aside style={css.card}><h3 style={{ marginTop: 0 }}>Fields</h3>{fieldTypes.map(([type,title]) => <button key={type} style={css.palette} onClick={() => addField(type,title)}>+ {title}</button>)}</aside>
         <section style={css.card}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{form.pages.map((p,i) => <button key={p.id} style={i === pageIndex ? css.primary : css.button} onClick={() => { setPageIndex(i); setSelectedId(null); }}>{p.title}</button>)}<button style={css.button} onClick={addPage}>+ Page</button></div>
+          <div style={{display:'flex',gap:6,marginBottom:12}}><button style={css.button} onClick={() => movePage(-1)}>← Page</button><button style={css.button} onClick={() => movePage(1)}>Page →</button><button style={css.button} onClick={duplicatePage}>Duplicate page</button><button style={css.button} onClick={removePage}>Remove page</button></div>
           <label style={css.label}>Page title<input style={css.input} value={currentPage.title} onChange={e => setForm(prev => ({ ...prev, pages: prev.pages.map((p,i) => i === pageIndex ? { ...p, title: e.target.value } : p) }))} /></label>
+          <label style={css.label}>Page description<textarea style={{...css.input,minHeight:70}} value={currentPage.description || ''} onChange={e => setForm(prev => ({ ...prev, pages: prev.pages.map((p,i) => i === pageIndex ? { ...p, description: e.target.value } : p) }))} /></label>
           {currentPage.fields.length === 0 && <div style={{ padding: 30, border: '2px dashed #dcdce4', borderRadius: 8, textAlign: 'center', color: '#666687' }}>Choose a field from the left to start building.</div>}
           {currentPage.fields.map((field,index) => <div key={field.id} style={{ ...css.fieldCard, outline: selectedId === field.id ? '2px solid #4945ff' : undefined }} onClick={() => setSelectedId(field.id)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><div><strong>{field.label}</strong><div style={{ fontSize: 12, color: '#666687' }}>{field.type} · {field.name}</div></div><div><button style={css.button} onClick={e => {e.stopPropagation(); moveField(index,-1)}}>↑</button> <button style={css.button} onClick={e => {e.stopPropagation(); moveField(index,1)}}>↓</button></div></div>
@@ -191,7 +242,12 @@ export function App() {
           <label style={css.label}>Field name<input style={css.input} value={selected.name} onChange={e => updateField({ name: slugify(e.target.value).replace(/-/g,'_') })} /></label>
           {!['heading','paragraph'].includes(selected.type) && <><label style={css.label}>Placeholder<input style={css.input} value={selected.placeholder || ''} onChange={e => updateField({ placeholder: e.target.value })} /></label><label style={css.label}>Help text<input style={css.input} value={selected.helpText || ''} onChange={e => updateField({ helpText: e.target.value })} /></label><label style={{ display:'flex',gap:8,marginBottom:12 }}><input type="checkbox" checked={!!selected.required} onChange={e => updateField({ required: e.target.checked })} /> Required</label></>}
           {selected.options && <label style={css.label}>Options (one per line)<textarea style={{ ...css.input, minHeight: 100 }} value={selected.options.map(o => o.label).join('\n')} onChange={e => updateField({ options: e.target.value.split('\n').filter(Boolean).map(v => ({ label:v, value:slugify(v) })) })} /></label>}
-          <details style={{ marginBottom: 16 }}><summary>Conditional logic</summary><p style={{ fontSize: 12, color:'#666687' }}>Condition storage is enabled in Core. The advanced rule builder is reserved for a later milestone.</p></details>
+          <details style={{ marginBottom: 16 }} open={!!selected.conditions}><summary>Conditional logic</summary>
+            <label style={{display:'flex',gap:8,margin:'12px 0'}}><input type="checkbox" checked={!!selected.conditions} onChange={e => updateField({ conditions: e.target.checked ? { logic:'and', rules:[{ field: allFields[0]?.name || '', operator:'eq', value:'' }] } : null })} /> Show this field conditionally</label>
+            {selected.conditions && <><label style={css.label}>When field<select style={css.input} value={String(selected.conditions.rules[0]?.field || '')} onChange={e => setCondition({field:e.target.value})}><option value="">Select field…</option>{allFields.map(f => <option key={f.id} value={f.name}>{f.label} ({f.name})</option>)}</select></label>
+            <label style={css.label}>Operator<select style={css.input} value={String(selected.conditions.rules[0]?.operator || 'eq')} onChange={e => setCondition({operator:e.target.value})}><option value="eq">Equals</option><option value="neq">Does not equal</option><option value="contains">Contains</option><option value="isEmpty">Is empty</option><option value="isNotEmpty">Is not empty</option></select></label>
+            {!['isEmpty','isNotEmpty'].includes(String(selected.conditions.rules[0]?.operator)) && <label style={css.label}>Value<input style={css.input} value={String(selected.conditions.rules[0]?.value ?? '')} onChange={e => setCondition({value:e.target.value})} /></label>}</>}
+          </details>
           <button style={{ ...css.button, width:'100%' }} onClick={() => removeField(selected.id)}>Remove field</button>
         </>}</aside>
       </div>}
