@@ -19,7 +19,8 @@ type FormDoc = {
   name: string;
   slug: string;
   description?: string;
-  status: string;
+  lifecycle?: 'active' | 'archived';
+  publishedAt?: string | null;
   requiresAuthentication?: boolean;
   pages: Page[];
   confirmation?: any;
@@ -36,7 +37,7 @@ const fieldTypes = [
 const uid = () => Math.random().toString(36).slice(2, 10);
 const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const blankForm = (): FormDoc => ({
-  name: 'Untitled Form', slug: 'untitled-form', status: 'draft',
+  name: 'Untitled Form', slug: 'untitled-form', lifecycle: 'active',
   pages: [{ id: uid(), title: 'Page 1', fields: [] }],
   confirmation: { type: 'message', message: 'Thank you for your submission.' },
   settings: {},
@@ -90,11 +91,21 @@ export default function App() {
   const [message, setMessage] = React.useState('');
 
   const loadForms = React.useCallback(async () => {
-    try { const res = await client.get('/clever-forms/forms'); setForms(res.data?.data || []); } catch { setMessage('Unable to load forms.'); }
+    try {
+      const res = await client.get<{ data: FormDoc[] }>('/clever-forms/forms');
+      setForms(res.data?.data || []);
+    } catch {
+      setMessage('Unable to load forms.');
+    }
   }, [client]);
 
   const loadSubmissions = React.useCallback(async () => {
-    try { const res = await client.get('/clever-forms/submissions'); setSubmissions(res.data?.data || []); } catch { setMessage('Unable to load submissions.'); }
+    try {
+      const res = await client.get<{ data: any[] }>('/clever-forms/submissions');
+      setSubmissions(res.data?.data || []);
+    } catch {
+      setMessage('Unable to load submissions.');
+    }
   }, [client]);
 
   React.useEffect(() => { loadForms(); }, [loadForms]);
@@ -127,7 +138,7 @@ export default function App() {
       const doc = saved.data?.data || saved.data;
       const documentId = doc.documentId || form.documentId;
       setForm(prev => ({ ...prev, ...doc, documentId }));
-      if (publish && documentId) { await client.post(`/clever-forms/forms/${documentId}/publish`); setForm(prev => ({ ...prev, status: 'published' })); }
+      if (publish && documentId) { await client.post(`/clever-forms/forms/${documentId}/publish`); setForm(prev => ({ ...prev, publishedAt: new Date().toISOString() })); }
       setMessage(publish ? 'Form published.' : 'Draft saved.');
       await loadForms();
     } catch (e: any) { setMessage(e?.message || 'Save failed.'); }
@@ -153,7 +164,7 @@ export default function App() {
       <h2 style={{ marginTop: 0 }}>Forms</h2>
       {forms.length === 0 ? <p>No forms yet. Create your first form.</p> : forms.map((f: any) => <div key={f.documentId} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 140px 100px', gap: 12, padding: '12px 0', borderBottom: '1px solid #eee' }}>
         <div><strong>{f.name}</strong><div style={{ color: '#666687', fontSize: 13 }}>/{f.slug}</div></div>
-        <span>{f.pages?.length || 0} page(s)</span><span>{f.status || 'draft'}</span><button style={css.button} onClick={() => edit(f)}>Edit</button>
+        <span>{f.pages?.length || 0} page(s)</span><span>{f.publishedAt ? 'published' : 'draft'}</span><button style={css.button} onClick={() => edit(f)}>Edit</button>
       </div>)}
     </div>}
 
