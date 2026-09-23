@@ -490,7 +490,7 @@ export function App() {
 
             {preview ? <Preview form={form} /> : (
               <Flex gap={4} alignItems="flex-start">
-                <Box width="240px" flexShrink={0}>
+                <Box width="240px" shrink={0}>
                   <Panel>
                     <Typography variant="delta" tag="h3">Fields</Typography>
                     <Flex direction="column" alignItems="stretch" gap={2} marginTop={3}>
@@ -575,7 +575,7 @@ export function App() {
                   </Panel>
                 </Box>
 
-                <Box width="320px" flexShrink={0}>
+                <Box width="320px" shrink={0}>
                   <Panel>
                     <Typography variant="delta" tag="h3">Properties</Typography>
                     {!selected ? (
@@ -693,7 +693,7 @@ export function App() {
             </Box>
 
             {selectedSubmission && (
-              <Box width="420px" flexShrink={0}>
+              <Box width="420px" shrink={0}>
                 <Panel>
                   <Flex justifyContent="space-between" alignItems="center" gap={3}>
                     <Typography variant="delta" tag="h3">Submission</Typography>
