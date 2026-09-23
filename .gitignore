@@ -15,3 +15,5 @@ tests/fixtures/strapi5-app/package-lock.json
 tests/fixtures/strapi5-app/.strapi/
 tests/fixtures/strapi5-app/.strapi-updater.json
 tests/fixtures/strapi5-app/public/uploads/
+
+*.tgz
