@@ -117,13 +117,29 @@ export default {
 
   async listSubmissions(ctx: any) {
     const { page, pageSize } = paging(ctx);
+    const status = String(ctx.query?.status || '').trim();
+    const formDocumentId = String(ctx.query?.formDocumentId || '').trim();
+    const filters: any = {};
+    if (['received', 'processing', 'completed', 'rejected'].includes(status)) filters.status = status;
+    if (formDocumentId) filters.form = { documentId: formDocumentId };
+
     const documents = await strapi.documents(SUBMISSION_UID).findMany({
-      sort: ['submittedAt:desc'], populate: ['form'],
+      sort: ['submittedAt:desc'], populate: ['form'], filters,
       start: (page - 1) * pageSize, limit: pageSize,
     } as any);
-    const total = await strapi.documents(SUBMISSION_UID).count({} as any);
+    const total = await strapi.documents(SUBMISSION_UID).count({ filters } as any);
     ctx.set('Cache-Control', 'no-store');
     ctx.body = { data: documents, meta: { pagination: { page, pageSize, pageCount: Math.ceil(total / pageSize), total } } };
+  },
+
+  async updateSubmissionStatus(ctx: any) {
+    const status = String(ctx.request.body?.data?.status || '');
+    if (!['received', 'processing', 'completed', 'rejected'].includes(status)) return ctx.badRequest('Invalid submission status.');
+    const current: any = await strapi.documents(SUBMISSION_UID).findOne({ documentId: ctx.params.documentId } as any);
+    if (!current) return ctx.notFound('Submission not found');
+    const document = await strapi.documents(SUBMISSION_UID).update({ documentId: ctx.params.documentId, data: { status } } as any);
+    ctx.set('Cache-Control', 'no-store');
+    ctx.body = { data: document };
   },
 
   async findSubmission(ctx: any) {
