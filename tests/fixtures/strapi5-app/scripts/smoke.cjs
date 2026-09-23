@@ -5,7 +5,16 @@ async function main() {
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_FILENAME = path.join(process.cwd(), '.tmp/smoke.db');
 
-  const app = createStrapi({ appDir: process.cwd(), distDir: path.join(process.cwd(), 'dist') });
+  const distDir = path.join(process.cwd(), 'dist');
+  const databaseConfig = path.join(distDir, 'config', 'database.js');
+
+  if (!require('node:fs').existsSync(databaseConfig)) {
+    throw new Error(
+      'Strapi fixture was not compiled. Expected dist/config/database.js. Run npm run build before npm run smoke.'
+    );
+  }
+
+  const app = createStrapi({ appDir: process.cwd(), distDir });
   await app.load();
 
   const plugin = app.plugin('clever-forms');
