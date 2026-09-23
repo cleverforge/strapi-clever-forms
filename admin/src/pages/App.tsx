@@ -84,6 +84,8 @@ export function App() {
   const [view, setView] = React.useState<'forms'|'editor'|'submissions'|'settings'>('forms');
   const [forms, setForms] = React.useState<FormDoc[]>([]);
   const [submissions, setSubmissions] = React.useState<any[]>([]);
+  const [submissionStatus, setSubmissionStatus] = React.useState('');
+  const [selectedSubmission, setSelectedSubmission] = React.useState<any | null>(null);
   const [form, setForm] = React.useState<FormDoc>(blankForm());
   const [pageIndex, setPageIndex] = React.useState(0);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -98,11 +100,12 @@ export function App() {
     } catch {
       setMessage('Unable to load forms.');
     }
-  }, [client]);
+  }, [client, submissionStatus]);
 
   const loadSubmissions = React.useCallback(async () => {
     try {
-      const res = await client.get<{ data: any[] }>('/clever-forms/submissions');
+      const query = submissionStatus ? `?status=${encodeURIComponent(submissionStatus)}` : '';
+      const res = await client.get<{ data: any[] }>(`/clever-forms/submissions${query}`);
       setSubmissions(res.data?.data || []);
     } catch {
       setMessage('Unable to load submissions.');
@@ -195,6 +198,17 @@ export function App() {
     event.target.value = '';
   };
 
+  const updateSubmissionStatus = async (documentId: string, status: string) => {
+    setBusy(true);
+    try {
+      await client.put(`/clever-forms/submissions/${documentId}/status`, { data: { status } });
+      setMessage('Submission status updated.');
+      if (selectedSubmission?.documentId === documentId) setSelectedSubmission((prev: any) => ({ ...prev, status }));
+      await loadSubmissions();
+    } catch (e: any) { setMessage(e?.message || 'Unable to update submission.'); }
+    finally { setBusy(false); }
+  };
+
   return <main style={css.shell}>
     <div style={css.top}>
       <div><h1 style={{ margin: 0 }}>CleverForms</h1><p style={{ margin: '4px 0 0', color: '#666687' }}>Forms and workflow foundation by CleverForge</p></div>
@@ -253,9 +267,15 @@ export function App() {
       </div>}
     </>}
 
-    {view === 'submissions' && <div style={css.card}><h2 style={{ marginTop:0 }}>Submissions</h2>{submissions.length === 0 ? <p>No submissions yet.</p> : submissions.map((s:any) => <div key={s.documentId} style={{ padding:'12px 0', borderBottom:'1px solid #eee' }}><strong>{s.form?.name || 'Form submission'}</strong><div style={{ fontSize:13,color:'#666687' }}>{s.submittedAt || s.createdAt}</div><pre style={{ whiteSpace:'pre-wrap',fontSize:12 }}>{JSON.stringify(s.data,null,2)}</pre></div>)}</div>}
+    {view === 'submissions' && <div style={{display:'grid',gridTemplateColumns:selectedSubmission ? 'minmax(500px,1fr) 420px' : '1fr',gap:16}}>
+      <div style={css.card}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'end',gap:12,marginBottom:16}}><div><h2 style={{ margin:0 }}>Submissions</h2><p style={{margin:'4px 0 0',color:'#666687'}}>Review submitted form data and workflow status.</p></div><label style={css.label}>Status<select style={{...css.input,minWidth:170}} value={submissionStatus} onChange={e => setSubmissionStatus(e.target.value)}><option value="">All statuses</option><option value="received">Received</option><option value="processing">Processing</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></label></div>
+        {submissions.length === 0 ? <p>No submissions found.</p> : submissions.map((s:any) => <button key={s.documentId} style={{...css.fieldCard,width:'100%',textAlign:'left'}} onClick={() => setSelectedSubmission(s)}><div style={{display:'flex',justifyContent:'space-between',gap:12}}><div><strong>{s.form?.name || 'Form submission'}</strong><div style={{ fontSize:13,color:'#666687' }}>{new Date(s.submittedAt || s.createdAt).toLocaleString()}</div></div><span>{s.status || 'received'}</span></div></button>)}
+      </div>
+      {selectedSubmission && <aside style={css.card}><div style={{display:'flex',justifyContent:'space-between',gap:8}}><h3 style={{marginTop:0}}>Submission</h3><button style={css.button} onClick={() => setSelectedSubmission(null)}>Close</button></div><p><strong>{selectedSubmission.form?.name || 'Form'}</strong><br/><small>{selectedSubmission.documentId}</small></p><label style={css.label}>Workflow status<select style={css.input} value={selectedSubmission.status || 'received'} disabled={busy} onChange={e => updateSubmissionStatus(selectedSubmission.documentId,e.target.value)}><option value="received">Received</option><option value="processing">Processing</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></label><h4>Submitted data</h4><div>{Object.entries(selectedSubmission.data || {}).map(([key,value]) => <div key={key} style={{padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{fontSize:12}}>{key}</strong><div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}</div></div>)}</div></aside>}
+    </div>}
 
-    {view === 'settings' && <div style={css.card}><h2 style={{ marginTop:0 }}>Settings</h2><p>Core settings will remain provider-neutral. Commercial modules such as Clever Connect, Clever AI, Communications, Analytics, and Payments will register their own settings here without placing proprietary code in Core.</p><label style={css.label}>Default confirmation message<input style={css.input} value={form.confirmation?.message || ''} onChange={e => setForm({ ...form, confirmation:{...form.confirmation,message:e.target.value} })} /></label></div>}
+    {view === 'settings' && <div style={css.card}><h2 style={{ marginTop:0 }}>Settings</h2><p>CleverForms Core settings are provider-neutral. Extension APIs are reserved for compatible integrations and future Strapi capabilities.</p><label style={css.label}>Default confirmation message<input style={css.input} value={form.confirmation?.message || ''} onChange={e => setForm({ ...form, confirmation:{...form.confirmation,message:e.target.value} })} /></label></div>}
   </main>;
 }
 
