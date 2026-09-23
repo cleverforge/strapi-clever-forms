@@ -1,6 +1,6 @@
 {
   "name": "@cleverforge/strapi-clever-forms",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "Free Strapi 5 form builder with multi-page forms, conditional logic, secure submissions, and a React renderer.",
   "keywords": [
     "strapi",
@@ -70,10 +70,11 @@
     "verify:package": "node scripts/verify-package.mjs",
     "verify:size": "node scripts/verify-bundle-size.mjs",
     "pack:check": "npm pack --dry-run",
-    "validate:release": "npm run typecheck && npm test && npm run build && npm run verify && npm run verify:package && npm run verify:size && npm run pack:check && npm run audit:runtime",
+    "validate:release": "npm run typecheck && npm test && npm run build && npm run check:bundle-size && npm run verify && npm run verify:package && npm run pack:check && npm run audit:runtime",
     "audit:runtime": "npm audit --omit=dev --audit-level=moderate",
     "test:packed": "node scripts/test-packed-install.mjs",
-    "validate:marketplace": "npm run validate:release && npm run test:packed"
+    "validate:marketplace": "npm run validate:release && npm run test:packed",
+    "check:bundle-size": "node scripts/check-bundle-size.mjs"
   },
   "dependencies": {
     "@strapi/design-system": "^2.0.0",
@@ -94,7 +95,9 @@
   "peerDependencies": {
     "@strapi/strapi": "^5.0.0",
     "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0"
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "@strapi/design-system": "^2.0.0",
+    "styled-components": "^6.1.0"
   },
   "engines": {
     "node": ">=20.0.0 <=24.x"
@@ -104,5 +107,13 @@
     "name": "clever-forms",
     "displayName": "CleverForms",
     "description": "Strapi 5-native forms and submissions by CleverForge"
+  },
+  "peerDependenciesMeta": {
+    "@strapi/design-system": {
+      "optional": false
+    },
+    "styled-components": {
+      "optional": false
+    }
   }
 }
