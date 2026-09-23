@@ -1,21 +1,42 @@
 import { validateSubmission, CleverFormsValidationError } from '../utils/validation';
+import { safeSlug, truncateUserAgent } from '../utils/security';
 import { CLEVER_FORMS_SCHEMA_VERSION } from '../../../shared/types';
 import { cleverFormsLifecycle } from '../../../shared/lifecycle';
 
 const SUBMISSION_UID = 'plugin::clever-forms.submission';
 
+function serializePublicForm(form: any) {
+  return {
+    documentId: form.documentId,
+    name: form.name,
+    slug: form.slug,
+    description: form.description ?? null,
+    version: form.version ?? 1,
+    schemaVersion: form.schemaVersion ?? CLEVER_FORMS_SCHEMA_VERSION,
+    pages: form.pages ?? [],
+    confirmation: form.confirmation ?? null,
+    requiresAuthentication: Boolean(form.requiresAuthentication),
+  };
+}
+
 export default ({ strapi }: { strapi: any }) => ({
   async getBySlug(ctx: any) {
-    const form = await strapi.plugin('clever-forms').service('form').findPublishedBySlug(ctx.params.slug);
+    const slug = safeSlug(ctx.params.slug);
+    if (!slug) return ctx.badRequest('Invalid form slug.');
+
+    const form = await strapi.plugin('clever-forms').service('form').findPublishedBySlug(slug);
     if (!form) return ctx.notFound('Form not found');
     if (form.requiresAuthentication && !ctx.state?.user) return ctx.unauthorized('Authentication required');
 
-    const { submissions: _submissions, ...publicForm } = form;
-    ctx.body = { data: publicForm };
+    ctx.set('Cache-Control', 'no-store');
+    ctx.body = { data: serializePublicForm(form) };
   },
 
   async submit(ctx: any) {
-    const form = await strapi.plugin('clever-forms').service('form').findPublishedBySlug(ctx.params.slug);
+    const slug = safeSlug(ctx.params.slug);
+    if (!slug) return ctx.badRequest('Invalid form slug.');
+
+    const form = await strapi.plugin('clever-forms').service('form').findPublishedBySlug(slug);
     if (!form) return ctx.notFound('Form not found');
     if (form.requiresAuthentication && !ctx.state?.user) return ctx.unauthorized('Authentication required');
 
@@ -40,10 +61,10 @@ export default ({ strapi }: { strapi: any }) => ({
           formVersion: envelope.formVersion,
           formSchemaVersion: envelope.formSchemaVersion,
           data: cleanData,
-          metadata: { source: ctx.request.body?.metadata?.source ?? 'api' },
+          metadata: { source: 'api' },
           submittedAt,
           status: 'received',
-          userAgent: ctx.request.headers['user-agent'] ?? null,
+          userAgent: truncateUserAgent(ctx.request.headers['user-agent']),
         },
       });
 
@@ -52,6 +73,7 @@ export default ({ strapi }: { strapi: any }) => ({
         submission: { ...envelope, documentId: submission.documentId },
       });
 
+      ctx.set('Cache-Control', 'no-store');
       ctx.status = 201;
       ctx.body = { data: { documentId: submission.documentId, status: submission.status } };
     } catch (error) {
