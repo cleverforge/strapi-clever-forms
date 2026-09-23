@@ -12,9 +12,7 @@ export function isSafeFieldName(name: string): boolean {
 }
 
 export function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function assertSafeObject(value: unknown, path = 'data', depth = 0): void {
@@ -27,9 +25,8 @@ export function assertSafeObject(value: unknown, path = 'data', depth = 0): void
   }
 
   if (!value || typeof value !== 'object') return;
-  if (!isPlainRecord(value)) throw new Error(`${path} must be a plain object.`);
 
-  for (const [key, item] of Object.entries(value)) {
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (RESERVED_KEYS.has(key)) throw new Error(`${path} contains a reserved property name.`);
     assertSafeObject(item, `${path}.${key}`, depth + 1);
   }
