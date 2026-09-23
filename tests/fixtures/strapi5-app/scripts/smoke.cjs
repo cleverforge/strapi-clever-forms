@@ -1,3 +1,4 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const { createStrapi } = require('@strapi/strapi');
 
@@ -7,12 +8,15 @@ async function main() {
 
   const distDir = path.join(process.cwd(), 'dist');
   const databaseConfig = path.join(distDir, 'config', 'database.js');
+  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
 
-  if (!require('node:fs').existsSync(databaseConfig)) {
+  if (!fs.existsSync(databaseConfig)) {
     throw new Error(
       'Strapi fixture was not compiled. Expected dist/config/database.js. Run npm run build before npm run smoke.'
     );
   }
+
+  fs.mkdirSync(uploadsDir, { recursive: true });
 
   const app = createStrapi({ appDir: process.cwd(), distDir });
   await app.load();
@@ -28,7 +32,7 @@ async function main() {
   await app.destroy();
 }
 
-main().catch(async (error) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
