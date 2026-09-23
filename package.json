@@ -1,7 +1,7 @@
 {
   "name": "@cleverforge/strapi-clever-forms",
-  "version": "0.1.0-alpha.2",
-  "description": "A Strapi 5-native form builder and submission platform by CleverForge.",
+  "version": "1.0.0-rc.1",
+  "description": "Free Strapi 5 form builder with multi-page forms, conditional logic, secure submissions, and a React renderer.",
   "keywords": [
     "strapi",
     "strapi5",
@@ -70,7 +70,9 @@
     "verify:package": "node scripts/verify-package.mjs",
     "pack:check": "npm pack --dry-run",
     "validate:release": "npm run typecheck && npm test && npm run build && npm run verify && npm run verify:package && npm run pack:check && npm run audit:runtime",
-    "audit:runtime": "npm audit --omit=dev --audit-level=moderate"
+    "audit:runtime": "npm audit --omit=dev --audit-level=moderate",
+    "test:packed": "node scripts/test-packed-install.mjs",
+    "validate:marketplace": "npm run validate:release && npm run test:packed"
   },
   "dependencies": {
     "zod": "^3.24.0"
@@ -95,7 +97,7 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0 <=24.x"
   },
   "strapi": {
     "kind": "plugin",
