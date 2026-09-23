@@ -13,4 +13,5 @@ export default [
   { method: 'DELETE', path: '/forms/:documentId', handler: 'admin.remove', config: permission('forms.delete') },
   { method: 'GET', path: '/submissions', handler: 'admin.listSubmissions', config: permission('submissions.read') },
   { method: 'GET', path: '/submissions/:documentId', handler: 'admin.findSubmission', config: permission('submissions.read') },
+  { method: 'PUT', path: '/submissions/:documentId/status', handler: 'admin.updateSubmissionStatus', config: permission('submissions.read') },
 ];
