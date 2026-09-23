@@ -6,7 +6,7 @@ export type ExportedCleverForm = {
 };
 
 const allowedTopLevel = [
-  'name', 'slug', 'description', 'status', 'requiresAuthentication',
+  'name', 'slug', 'description', 'lifecycle', 'requiresAuthentication',
   'pages', 'confirmation', 'settings', 'version',
 ] as const;
 
@@ -16,14 +16,12 @@ export function exportForm(form: any): string {
     if (form?.[key] !== undefined) clean[key] = form[key];
   }
 
-  const payload: ExportedCleverForm = {
+  return JSON.stringify({
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
     product: 'CleverForms',
     form: clean,
-  };
-
-  return JSON.stringify(payload, null, 2);
+  } satisfies ExportedCleverForm, null, 2);
 }
 
 export function importForm(raw: string): any {
@@ -38,7 +36,8 @@ export function importForm(raw: string): any {
   return {
     ...form,
     documentId: undefined,
-    status: 'draft',
+    publishedAt: null,
+    lifecycle: 'active',
     name: `${form.name || 'Imported Form'} Copy`,
     slug: `${form.slug || 'imported-form'}-copy`,
   };
