@@ -18,8 +18,10 @@ export interface CleverFormDefinition {
   documentId?: string;
   name: string;
   slug: string;
-  status: 'draft' | 'published' | 'archived';
+  lifecycle?: 'active' | 'archived';
+  publishedAt?: string | null;
   requiresAuthentication?: boolean;
+  schemaVersion?: number;
   version: number;
   pages: CleverPage[];
   confirmation?: Record<string, unknown> | null;
