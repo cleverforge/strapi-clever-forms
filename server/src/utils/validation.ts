@@ -1,4 +1,5 @@
 import type { CleverFormDefinition } from '../types';
+import { evaluateConditionGroup } from '../../../shared/conditions';
 import { assertSubmissionEnvelope, assertValueSize, isSafeFieldName } from './security';
 
 export class CleverFormsValidationError extends Error {
@@ -36,6 +37,8 @@ export function validateSubmission(form: CleverFormDefinition, input: unknown) {
     for (const field of page.fields ?? []) {
       if (['heading', 'paragraph'].includes(field.type)) continue;
       const value = record[field.name];
+      const visible = evaluateConditionGroup(field.conditions, record);
+      if (!visible) continue;
 
       if (field.required && isBlank(value)) {
         errors[field.name] = 'This field is required.';
