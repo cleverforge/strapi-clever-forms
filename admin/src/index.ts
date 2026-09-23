@@ -15,7 +15,7 @@ export default {
       intlLabel: { id: `${PLUGIN_ID}.plugin.name`, defaultMessage: 'CleverForms' },
       Component: async () => {
         const module = await import('./pages/App.js');
-        return { default: module.default };
+        return { default: module.App };
       },
       permissions: [],
     });
